@@ -1,3 +1,9 @@
+"""
+build_deb.py
+
+This script is designed to automate the process of building Debian packages within a chroot environment.
+"""
+
 import os
 import shutil
 import subprocess
@@ -16,7 +22,24 @@ class PackageBuilder:
     def __init__(self, MOUNT_DIR, SOURCE_DIR, APT_SERVER_CONFIG, CHROOT_NAME, \
     MANIFEST_MAP=None, TEMP_DIR=None, DEB_OUT_DIR=None, DEB_OUT_DIR_APT=None, DEBIAN_INSTALL_DIR=None, \
     DEBIAN_INSTALL_DIR_APT=None, IS_CLEANUP_ENABLED=True, IS_PREPARE_SOURCE=False):
+        """
+        Initializes the PackageBuilder instance.
 
+        Args:
+        -----
+        - MOUNT_DIR (str): The directory where the chroot environment will be mounted.
+        - SOURCE_DIR (str): The source directory containing the packages to build.
+        - APT_SERVER_CONFIG (list): Configuration for the APT server.
+        - CHROOT_NAME (str): The name of the chroot environment.
+        - MANIFEST_MAP (dict, optional): A mapping of package paths to their properties.
+        - TEMP_DIR (str, optional): Temporary directory for building packages.
+        - DEB_OUT_DIR (str, optional): Output directory for built Debian packages.
+        - DEB_OUT_DIR_APT (str, optional): Output directory for APT repository.
+        - DEBIAN_INSTALL_DIR (str, optional): Directory for Debian installation files.
+        - DEBIAN_INSTALL_DIR_APT (str, optional): Directory for APT installation files.
+        - IS_CLEANUP_ENABLED (bool, optional): Flag to enable cleanup of the mount directory.
+        - IS_PREPARE_SOURCE (bool, optional): If True, prepares the source directory before building. Defaults to False.
+        """
         if not check_if_root():
             logger.error('Please run this script as root user.')
             exit(1)
@@ -45,6 +68,13 @@ class PackageBuilder:
         self.generate_schroot_config()
 
     def generate_schroot_config(self):
+        """
+        Generates the schroot configuration for the specified chroot environment.
+
+        Raises:
+        -------
+        - Exception: If there is an error creating the schroot environment.
+        """
         logger.info(f"Generating schroot configuration for {self.CHROOT_NAME} at {self.MOUNT_DIR}")
         if not os.path.exists(os.path.join(self.MOUNT_DIR, "root")):
             out = run_command_for_result(f"sbuild-createchroot --arch=arm64 --chroot-suffix={self.CHROOT_NAME} --components=main,universe {self.DIST} {self.MOUNT_DIR} http://ports.ubuntu.com")
@@ -74,7 +104,21 @@ class PackageBuilder:
                 }
 
     def get_packages_from_control(self, control_file):
-        """Extract package name from the control file."""
+        """
+        Extracts package names and build dependencies from the control file.
+
+        Args:
+        -----
+        - control_file (Path): The path to the control file.
+
+        Returns:
+        --------
+        - tuple: A tuple containing a set of package names and a set of dependencies.
+
+        Raises:
+        -------
+        - SystemExit: If the control file is invalid or does not exist.
+        """
         if not control_file.exists():
             return []
 
@@ -112,7 +156,13 @@ class PackageBuilder:
         return packages, dependencies
 
     def detect_cycle(self):
-        """Detects cycles in the dependency graph using Kahn's Algorithm."""
+        """
+        Detects cycles in the dependency graph using Kahn's Algorithm.
+
+        Returns:
+        --------
+        - list: A sorted order of packages if no cycles are detected, otherwise logs an error.
+        """
         graph = {}
         in_degree = {}
 
@@ -170,6 +220,13 @@ class PackageBuilder:
         return sorted_order
 
     def reorganize_deb_in_oss_prop(self, repo_path):
+        """
+        Reorganizes built .deb files into the appropriate output directory based on the manifest map.
+
+        Args:
+        -----
+        - repo_path (Path): The path to the repository containing the built packages.
+        """
         oss_or_prop = search_manifest_map_for_path(self.MANIFEST_MAP, self.SOURCE_DIR, repo_path)
         for root, dirs, files in os.walk(self.TEMP_DIR):
             for file in files:
@@ -180,6 +237,13 @@ class PackageBuilder:
                     shutil.move(os.path.join(root, file), os.path.join(pkg_dir, file))
 
     def reorganize_dsc_in_oss_prop(self, repo_path):
+        """
+        Reorganizes .dsc files into the appropriate output directory based on the manifest map.
+
+        Args:
+        -----
+        - repo_path (Path): The path to the repository containing the .dsc files.
+        """
         oss_or_prop = search_manifest_map_for_path(self.MANIFEST_MAP, self.SOURCE_DIR, repo_path)
         parent_dir = repo_path.parent
 
@@ -192,7 +256,17 @@ class PackageBuilder:
                 shutil.move(str(file_path), os.path.join(pkg_dir, file))
 
     def build_package(self, package):
-        """Builds a package inside the chroot environment."""
+        """
+        Builds a package inside the chroot environment.
+
+        Args:
+        -----
+        - package (str): The name of the package to build.
+
+        Raises:
+        -------
+        - Exception: If there is an error during the build process.
+        """
         package_info = self.packages[package]
 
         repo_path = package_info["repo_path"]
@@ -242,7 +316,17 @@ class PackageBuilder:
                         break
 
     def build_specific_package(self, package_name):
-        """Builds a specific package along with its dependencies first."""
+        """
+        Builds a specific package along with its dependencies first.
+
+        Args:
+        -----
+        - package_name (str): The name of the package to build.
+
+        Returns:
+        --------
+        - bool: True if the package was found and built, False otherwise.
+        """
         found = False
         for package in self.packages:
             if not self.packages[package]['visited']:

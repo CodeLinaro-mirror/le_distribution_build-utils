@@ -1,3 +1,11 @@
+"""
+pack_deb.py
+
+This script automates the process of creating a system image for a Debian-based operating system.
+It sets up a chroot environment, parses package manifests, builds the image with specified packages,
+and configures the bootloader. The script requires root privileges to execute.
+"""
+
 import os
 import shutil
 import subprocess
@@ -14,6 +22,22 @@ from deb_organize import search_manifest_map_for_path
 
 class PackagePacker:
     def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED):
+        """
+        Initializes the PackagePacker instance.
+
+        Args:
+        -----
+        - MOUNT_DIR (str): The directory where the image will be mounted.
+        - IMAGE_TYPE (str): The type of image to create.
+        - VARIANT (str): The variant of the image (e.g., 'qcom').
+        - OUT_DIR (str): The output directory for the image files.
+        - OUT_SYSTEM_IMG (str): The path to the output system image file.
+        - APT_SERVER_CONFIG (list): Configuration for the APT server.
+        - TEMP_DIR (str): Temporary directory for building the image.
+        - DEB_OUT_DIR (str): Output directory for Debian packages.
+        - DEBIAN_INSTALL_DIR (str): Directory for Debian installation files.
+        - IS_CLEANUP_ENABLED (bool): Flag to enable cleanup of temporary files.
+        """
         if not check_if_root():
             logger.error('Please run this script as root user.')
             exit(1)
@@ -45,11 +69,25 @@ class PackagePacker:
         self.set_system_image()
 
     def set_system_image(self):
+        """
+        Creates and mounts the system image file.
+
+        Raises:
+        -------
+        - Exception: If there is an error creating or mounting the system image.
+        """
         run_command(f"truncate -s {IMAGE_SIZE_IN_G}G {self.OUT_SYSTEM_IMG}")
         run_command(f"mkfs.ext4 -F -U $(uuidgen) {self.OUT_SYSTEM_IMG}")
         run_command(f"mount -o loop {self.OUT_SYSTEM_IMG} {self.MOUNT_DIR}")
 
     def set_efi_bin(self):
+        """
+        Creates and mounts the EFI binary for the bootloader.
+
+        Raises:
+        -------
+        - Exception: If there is an error creating or mounting the EFI binary.
+        """
         cleanup_file(self.EFI_BIN_PATH)
         run_command(f"dd if=/dev/zero of={self.EFI_BIN_PATH} bs=512 count=32768")
         run_command(f"mkfs.fat -F16 -s 8 -h 2048 -n EFI {self.EFI_BIN_PATH}")
@@ -64,6 +102,9 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
         run_command(grub_update_cmd)
 
     def parse_manifests(self):
+        """
+        Parses the base and QCOM manifests to gather the list of packages to include in the image.
+        """
         self.BASE_MANIFEST = create_new_file(os.path.join(self.cur_file, "packages", "base", f"{self.IMAGE_TYPE}.manifest"))
         self.QCOM_MANIFEST = create_new_file(os.path.join(self.cur_file, "packages", "qcom", f"{self.IMAGE_TYPE}.manifest"))
 
@@ -93,6 +134,13 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
                         )
 
     def get_deb_list(self) -> None:
+        """
+        Constructs a list of Debian packages to be included in the image.
+
+        Returns:
+        --------
+        - str: A comma-separated string of package names and versions.
+        """
         deb_list = self.DEBS
         deb_list = ['{}={}'.format(str(deb['package']).strip(), str(deb['version']).strip()) if deb['version'] else deb['package'] for deb in deb_list]
         deb_list = ['ca-certificates'] + deb_list
@@ -102,6 +150,13 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
         return debs
 
     def build_image(self):
+        """
+        Builds the system image using mmdebstrap with the specified packages.
+
+        Raises:
+        -------
+        - Exception: If there is an error during the image building process.
+        """
         log_file = os.path.join(self.TEMP_DIR, f"mmdebstrap_{self.IMAGE_TYPE}_{self.VARIANT}.mmdebstrap.build")
 
         bash_command = f"""
