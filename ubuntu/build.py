@@ -54,6 +54,8 @@ def parse_arguments():
                         help='Kernel directory (default: <workspace>/kernel)')
     parser.add_argument('--kernel-dest-dir', type=str, required=False,
                         help='Kernel out directory (default: <workspace>/debian_packages/oss)')
+    parser.add_argument('--kernel-deb-path', type=str, required=False,
+                        help='directory with built kernel debians (default: <workspace>/debian_packages/oss)')
     parser.add_argument('--flavor', type=str, choices=['server', 'desktop'], default='server',
                         help='Image flavor (only server or desktop, default: server)')
     parser.add_argument('--debians-path', type=str, required=False,
@@ -87,6 +89,7 @@ def parse_arguments():
     for path_arg, path_value in {
         '--workspace': args.workspace,
         '--kernel-dest-dir': args.kernel_dest_dir,
+        '--kernel-deb-path' : args.kernel_deb_path ,
         '--debians-path': args.debians_path,
         '--output-image-file': args.output_image_file,
     }.items():
@@ -132,9 +135,19 @@ OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
 DEB_OUT_DIR = os.path.join(WORKSPACE_DIR, "debian_packages")
 
 OSS_DEB_OUT_DIR = os.path.join(DEB_OUT_DIR, "oss")
-KERNEL_DEB_OUT_DIR = args.kernel_dest_dir if args.kernel_dest_dir else OSS_DEB_OUT_DIR
+
+KERNEL_DEB_OUT_DIR = (
+    args.kernel_dest_dir if args.kernel_dest_dir
+    else args.kernel_deb_path if args.kernel_deb_path
+    else OSS_DEB_OUT_DIR
+)
 PROP_DEB_OUT_DIR = os.path.join(DEB_OUT_DIR, "prop")
 TEMP_DIR = os.path.join(DEB_OUT_DIR, "temp")
+
+# Check for conflicting arguments
+if args.kernel_deb_path and IF_BUILD_KERNEL:
+    logger.error('Error: --kernel-deb-path and --build-kernel cannot be used together.')
+    exit(1)
 
 # Check for root privileges
 if not check_if_root():
