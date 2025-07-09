@@ -197,7 +197,7 @@ def print_build_logs(directory):
     build_logs = []
     for entry in os.listdir(directory):
         full_path = os.path.join(directory, entry)
-        if os.path.islink(full_path) and entry.endswith(".build"):
+        if (os.path.islink(full_path) and entry.endswith(".build")) or entry.endswith(".mmdebstrap.build"):
             build_logs.append(entry)
     for entry in build_logs:
         full_path = os.path.join(directory, entry)
