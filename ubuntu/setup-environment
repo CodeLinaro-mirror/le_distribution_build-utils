@@ -6,7 +6,15 @@ log() {
 
 log "Starting environment setup..."
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE:-$0}")" && pwd)"
+
+if command -v readlink >/dev/null 2>&1 && readlink -f / >/dev/null 2>&1; then
+  SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+else
+  # Fallback for systems without readlink -f (like macOS)
+  SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+fi
+
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 log "Script directory resolved to: $SCRIPT_DIR"
 
 export PATH="$SCRIPT_DIR:$PATH"
