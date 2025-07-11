@@ -60,10 +60,9 @@ class PackageBuilder:
     def load_packages(self):
         """Load package metadata from build_config.py and fetch dependencies from control files."""
         for root, dirs, files in os.walk(self.SOURCE_DIR):
+            dirs[:] = [d for d in dirs if d != '.git']
             if 'debian' in dirs:
-                root_name = Path(root).name
                 debian_dir = Path(os.path.join(root, 'debian'))
-
                 pkg_names, dependencies = self.get_packages_from_control(debian_dir / "control")
 
                 self.packages[str(debian_dir)] = {
