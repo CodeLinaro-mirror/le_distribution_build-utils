@@ -4,7 +4,7 @@ qcom-property-vault	1.0.4
 qcom-syslog-plumber-dev	1.0.1
 qcom-fastcv-binaries1	1.8.0
 qcom-dspservices-headers-dev	1.0.1
-qcom-fastrpc1	1.0.0-6
+qcom-fastrpc1	1.0.0-8
 qcom-securedsp-example-dev	1.0.1
 qcom-diag	1.0.1
 qcom-diag-router	1.0.1
