@@ -69,7 +69,7 @@ def search_manifest_map_for_path(MANIFEST_MAP, SOURCE_DIR, path):
 
     Returns:
     --------
-    - str or None: The corresponding value from the manifest map if found, otherwise None.
+    - str or oss: The corresponding value from the manifest map if found, otherwise None.
     """
     if path:
         path = str(path).strip().replace(SOURCE_DIR, 'sources')
@@ -82,4 +82,4 @@ def search_manifest_map_for_path(MANIFEST_MAP, SOURCE_DIR, path):
                 key_parts = key.split('/')
                 if all(part in path_parts for part in key_parts):
                     return MANIFEST_MAP[key]
-    return None
+    return "oss"

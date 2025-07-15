@@ -168,7 +168,13 @@ create_new_directory(TEMP_DIR, delete_if_exists=True)
 
 # Set up APT server configuration and generate manifest map
 APT_SERVER_CONFIG = [config.strip() for config in args.apt_server_config.split(',')] if args.apt_server_config else None
-MANIFEST_MAP = generate_manifest_map(WORKSPACE_DIR)
+
+try:
+    MANIFEST_MAP = generate_manifest_map(WORKSPACE_DIR)
+except Exception as e:
+    logger.error(f"Failed to generate manifest map: {e}")
+    MANIFEST_MAP = {}
+
 APT_SERVER_CONFIG = list(set(APT_SERVER_CONFIG)) if APT_SERVER_CONFIG else None
 
 ERROR_EXIT_BUILD = False
