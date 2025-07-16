@@ -14,6 +14,7 @@ import shutil
 import logging
 import subprocess
 import glob
+from pathlib import Path
 from git import Repo
 from apt_server import AptServer
 from constants import TERMINAL, HOST_FS_MOUNT
@@ -86,6 +87,29 @@ def check_and_append_line_in_file(file_path, line_to_check, append_if_missing=Fa
         return True
 
     return False
+
+def parse_debs_manifest(manifest_path):
+    """
+    Parses a manifest file and returns a dictionary of module names and their corresponding versions.
+    """
+    DEBS = []
+    user_manifest = Path(manifest_path)
+    if not user_manifest.is_file() or not user_manifest.name.endswith('.manifest'):
+        raise ValueError(f"Provided manifest path '{user_manifest}' is not a valid '.manifest' file.")
+    if os.path.isfile(manifest_path):
+        with open(manifest_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    parts = list(line.split('\t'))
+                    DEBS.append({
+                        'package': parts[0],
+                        'version': parts[1] if len(parts) > 1 else None,
+                    })
+            return DEBS
+    else:
+        print(f"Manifest file {manifest_path} not found.")
+        return None
 
 def run_command(command, check=True, get_object=False, cwd=None):
     """

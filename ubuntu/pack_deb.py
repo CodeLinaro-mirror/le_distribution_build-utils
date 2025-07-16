@@ -17,11 +17,11 @@ from pathlib import Path
 from queue import Queue
 from collections import defaultdict, deque
 from constants import *
-from helpers import create_new_file, check_if_root, logger, run_command, create_new_directory, run_command_for_result, mount_img, umount_dir, cleanup_file, build_deb_package_gz
+from helpers import create_new_file, check_if_root, logger, run_command, create_new_directory, run_command_for_result, mount_img, umount_dir, cleanup_file, build_deb_package_gz, parse_debs_manifest
 from deb_organize import search_manifest_map_for_path
 
 class PackagePacker:
-    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED):
+    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH=None):
         """
         Initializes the PackagePacker instance.
 
@@ -38,6 +38,7 @@ class PackagePacker:
         - DEBIAN_INSTALL_DIR (str): Directory for Debian installation files.
         - IS_CLEANUP_ENABLED (bool): Flag to enable cleanup of temporary files.
         """
+
         if not check_if_root():
             logger.error('Please run this script as root user.')
             exit(1)
@@ -53,7 +54,8 @@ class PackagePacker:
         self.OUT_DIR = OUT_DIR
         self.TEMP_DIR = TEMP_DIR
         self.OUT_SYSTEM_IMG = OUT_SYSTEM_IMG
-        
+        self.PACKAGES_MANIFEST_PATH = PACKAGES_MANIFEST_PATH
+
         self.EFI_BIN_PATH = os.path.join(self.OUT_DIR, "efi.bin")
         self.EFI_MOUNT_PATH = os.path.join(self.MOUNT_DIR, "boot", "efi")
 
@@ -105,33 +107,30 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
         """
         Parses the base and QCOM manifests to gather the list of packages to include in the image.
         """
-        self.BASE_MANIFEST = create_new_file(os.path.join(self.cur_file, "packages", "base", f"{self.IMAGE_TYPE}.manifest"))
-        self.QCOM_MANIFEST = create_new_file(os.path.join(self.cur_file, "packages", "qcom", f"{self.IMAGE_TYPE}.manifest"))
+        self.QCOM_MANIFEST = None
+        # 1. User-provided manifest
+        if self.PACKAGES_MANIFEST_PATH:
+            logger.info(f"Packages manifest path: {self.PACKAGES_MANIFEST_PATH}")
+            # Load packages from user manifest
+            self.DEBS = parse_debs_manifest(self.PACKAGES_MANIFEST_PATH)
+            return  # Done if user manifest is found and valid
 
-        with open(self.BASE_MANIFEST, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    parts = list(line.strip().split('\t'))
-                    self.DEBS.append(
-                        {
-                            'package': parts[0],
-                            'version': parts[1] if len(parts) > 1 else None,
-                        }
-                    )
-
-        if self.VARIANT == "qcom":
-            with open(self.QCOM_MANIFEST, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#'):
-                        parts = list(line.strip().split('\t'))
-                        self.DEBS.append(
-                            {
-                                'package': parts[0],
-                                'version': parts[1] if len(parts) > 1 else None,
-                            }
-                        )
+        # 2. Default manifest(s) from packages/base and/or packages/qcom
+        base_path = os.path.join(self.cur_file, "packages", "base", f"{self.IMAGE_TYPE}.manifest")
+        if os.path.isfile(base_path):
+            self.BASE_MANIFEST = base_path
+            logger.info(f"Using base manifest: {self.BASE_MANIFEST}")
+            self.DEBS = parse_debs_manifest(self.BASE_MANIFEST)
+            # Also include qcom manifest if variant == qcom
+            if self.VARIANT == "qcom":
+                qcom_path = os.path.join(self.cur_file, "packages", "qcom", f"{self.IMAGE_TYPE}.manifest")
+                self.QCOM_MANIFEST = qcom_path
+                logger.info(f"Using QCOM manifest: {self.QCOM_MANIFEST}")
+                self.DEBS.extend(parse_debs_manifest(self.QCOM_MANIFEST))
+            return
+        # 3. No manifest found: print message and exit
+        logger.error("No manifest found. Please provide a valid .manifest file via PACKAGES_MANIFEST_PATH or ensure default manifests exist.")
+        exit(1)
 
     def get_deb_list(self) -> None:
         """

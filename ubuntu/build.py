@@ -70,6 +70,8 @@ def parse_arguments():
                         help='Pack system.img with generated debians (default: False)')
     parser.add_argument('--pack-variant', type=str, choices=['base', 'qcom'], default='qcom',
                         help='Pack variant (only base or qcom, default: qcom)')
+    parser.add_argument('--packages-manifest-path', type=str, required=False,
+                        help='Absolute path to the package manifest file')
     parser.add_argument('--output-image-file', type=str, required=False,
                         help='Path for output system.img (default: <workspace>/out/system.img)')
     parser.add_argument('--chroot-name', type=str, required=False,
@@ -97,6 +99,7 @@ def parse_arguments():
         '--kernel-deb-path' : args.kernel_deb_path ,
         '--debians-path': args.debians_path,
         '--output-image-file': args.output_image_file,
+        '--packages-manifest-path': args.packages_manifest_path,
     }.items():
         if path_value and not os.path.isabs(path_value):
             logger.error(f"Error: {path_arg} must be an absolute path.")
@@ -110,6 +113,7 @@ args = parse_arguments()
 # Set up workspace and image parameters
 WORKSPACE_DIR = args.workspace
 IMAGE_TYPE = args.flavor
+PACKAGES_MANIFEST_PATH = args.packages_manifest_path
 
 # Generate a unique chroot name if not provided
 CHROOT_NAME = args.chroot_name if args.chroot_name else f"ubuntu-{date.today()}-{random.randint(0, 10000)}"
@@ -257,8 +261,8 @@ if IF_PACK_IMAGE:
             manifest_file_path = os.path.join(cur_file, "packages", "base", f"{IMAGE_TYPE}.manifest")
             pull_debs_wget(manifest_file_path, KERNEL_DEB_OUT_DIR,KERNEL_DEBS,KERNEL_DEB_URL)
         build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
-        # Initialize the PackagePacker to build the system image
-        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED)
+
+        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH)
 
         packer.build_image()
     except Exception as e:
