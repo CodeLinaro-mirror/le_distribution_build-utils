@@ -2,7 +2,7 @@ libgbm-msm1	1.1.0
 qcom-adreno1	1.808.7+250130+rel1.2.1
 qcom-dspservices-headers-dev	1.0.1
 qcom-fastcv-binaries1	1.8.0
-qcom-fastrpc1	1.0.0-6
+qcom-fastrpc1	1.0.0-8
 qcom-libdmabufheap	1.1.0
 qcom-libvmmem	1.0.0
 qcom-property-vault	1.0.4
