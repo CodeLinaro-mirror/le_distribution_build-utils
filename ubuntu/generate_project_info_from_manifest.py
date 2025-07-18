@@ -13,33 +13,6 @@ from lxml import etree
 from helpers import logger
 
 
-def get_file_data_api_response(project, revision, file_name):
-    """
-    Fetches file data from the API for a given project and revision.
-
-    Args:
-    -----
-    - project (str): The name of the project.
-    - revision (str): The revision identifier.
-    - file_name (str): The name of the file to retrieve.
-
-    Returns:
-    --------
-    - Response: The response object from the API call.
-
-    Raises:
-    -------
-    - Exception: If there is an error during the API request.
-    """
-    params = {'project': project, 'revision': revision,
-                  'file': file_name}
-    url = 'https://{}/api/v1/get_file_data/'.format('aim.qualcomm.com')
-    try:
-        return requests.get(url, params=params, verify=False)
-    except Exception as e:
-        raise e
-
-
 def parse_from_string(xml_string):
     """
     Parses an XML string into an ElementTree object.
@@ -90,34 +63,6 @@ def etree_to_dict(node):
         else:
             d[node.tag] = text
     return d
-
-
-def get_file_data_as_dict(project, revision, filename='default.xml'):
-    """
-    Retrieves file data from the API and converts it to a dictionary.
-
-    Args:
-    -----
-    - project (str): The name of the project.
-    - revision (str): The revision identifier.
-    - filename (str): The name of the file to retrieve (default is 'default.xml').
-
-    Returns:
-    --------
-    - dict: Dictionary containing the file data.
-
-    Raises:
-    -------
-    - Exception: If there is an error during the API request or data processing.
-    """
-    response = get_file_data_api_response(project, revision, filename)
-    try:
-        result = response.json()
-        json_data = result.get('file_data').encode('utf-8')
-        data_json = etree_to_dict(parse_from_string(json_data))
-        return data_json
-    except Exception as e:
-        raise e
 
 
 def write_to_file(workspace, projects, out_path=None):
@@ -185,12 +130,7 @@ def create_project_info_file(workspace, project, revision, au, group, out_path=N
         else:
             write_to_file(workspace, projects, out_path)
     else:
-        mf_data = get_file_data_as_dict(project, revision)
-        projects = mf_data['manifest']['project']
-        if group:
-            logger.info(get_comp_tag_for_groups(projects, group))
-        else:
-            write_to_file(workspace, projects, out_path)
+        logger.warning("default.xml not present in .repo/manifests/. All packages will default to 'oss' category without manifest information.")
     return
 
 
