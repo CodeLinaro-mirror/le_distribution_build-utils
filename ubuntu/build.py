@@ -24,9 +24,10 @@ from build_dtb import build_dtb
 from build_deb import PackageBuilder
 from constants import *
 from datetime import date
-from helpers import create_new_directory, umount_dir, check_if_root, check_and_append_line_in_file, cleanup_file, logger, cleanup_directory, change_folder_perm_read_write, print_build_logs, start_local_apt_server, build_deb_package_gz, mount_img
+from helpers import create_new_directory, umount_dir, check_if_root, check_and_append_line_in_file, cleanup_file, logger, cleanup_directory, change_folder_perm_read_write, print_build_logs, start_local_apt_server, build_deb_package_gz, mount_img, pull_debs_wget
 from deb_organize import generate_manifest_map
 from pack_deb import PackagePacker
+import glob
 
 def parse_arguments():
     """
@@ -56,6 +57,8 @@ def parse_arguments():
                         help='Kernel out directory (default: <workspace>/debian_packages/oss)')
     parser.add_argument('--kernel-deb-path', type=str, required=False,
                         help='directory with built kernel debians (default: <workspace>/debian_packages/oss)')
+    parser.add_argument('--kernel-deb-url', type=str, required=False,
+                        help='directory with built kernel debians', default="https://pkg.qualcomm.com/pool/stable/main")
     parser.add_argument('--flavor', type=str, choices=['server', 'desktop'], default='server',
                         help='Image flavor (only server or desktop, default: server)')
     parser.add_argument('--debians-path', type=str, required=False,
@@ -130,6 +133,7 @@ MOUNT_DIR = os.path.join(MOUNT_DIR, CHROOT_NAME)
 
 # Define kernel and output directories
 KERNEL_DIR = args.kernel_src_dir if args.kernel_src_dir else os.path.join(WORKSPACE_DIR, "kernel")
+KERNEL_DEB_URL = args.kernel_deb_url
 SOURCES_DIR = os.path.join(WORKSPACE_DIR, "sources")
 OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
 DEB_OUT_DIR = os.path.join(WORKSPACE_DIR, "debian_packages")
@@ -239,6 +243,12 @@ if IF_PACK_IMAGE:
     cleanup_file(OUT_SYSTEM_IMG)
     create_new_directory(MOUNT_DIR)
     try:
+        files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
+        if len(files_check) == 0:
+            logger.warning(f"Warning: No files matching {LINUX_MODULES_DEB} exist.pulling it from pkg.qualcomm.com")
+            cur_file = os.path.dirname(os.path.realpath(__file__))
+            manifest_file_path = os.path.join(cur_file, "packages", "base", f"{IMAGE_TYPE}.manifest")
+            pull_debs_wget(manifest_file_path, KERNEL_DEB_OUT_DIR,KERNEL_DEBS,KERNEL_DEB_URL)
         build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
         # Initialize the PackagePacker to build the system image
         packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED)

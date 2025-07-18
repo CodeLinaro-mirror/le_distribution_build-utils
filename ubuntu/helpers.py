@@ -412,3 +412,59 @@ def build_deb_package_gz(direc, start_server=True) -> str:
     if start_server:
         return start_local_apt_server(direc)
     return None
+
+
+def pull_debs_wget(manifest_file_path, out_dir,DEBS_to_download_list,base_url):
+    """
+    Downloads Debian packages from a remote repository using wget.
+
+    Args:
+    -----
+    - manifest_file_path (str): Path to the manifest file containing package versions.
+    - out_dir (str): Directory where downloaded packages will be saved.
+    - DEBS_to_download_list (list): List of package name prefixes to download.
+    - base_url (str): Base URL of the repository to download packages from.
+
+    Returns:
+    --------
+    - int: Number of packages successfully downloaded.
+
+    Raises:
+    -------
+    - Exception: If an error occurs while downloading packages.
+    """
+    # Read manifest file
+    # Parse manifest into a dictionary
+    with open(manifest_file_path, 'r') as f:
+        manifest_text = f.read()
+
+    # Parse manifest into a dictionary
+    version_map = {}
+    for line in manifest_text.strip().splitlines():
+        if not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) >= 2:
+            name, version = parts[0], parts[1]
+            version_map[name] = version
+
+
+    # Generate wget links and download
+    os.makedirs(out_dir, exist_ok=True)
+    for module in DEBS_to_download_list:
+        for name, version in version_map.items():
+            if name.startswith(module):
+                first_letter = name[0]
+                deb_name = f"{name}_{version}_arm64.deb"
+                url = f"{base_url}/{first_letter}/{name}/{deb_name}"
+                output_path = os.path.join(out_dir,name,deb_name)
+                create_new_directory(os.path.join(out_dir,name))
+                # Construct wget command
+                wget_cmd = ["wget", url, "-O", output_path]
+                try:
+                    logger.info(f"Downloading {url}...")
+                    subprocess.run(wget_cmd, check=True)
+                    logger.info(f"Saved to {output_path}")
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"error: Failed to download {url}: {e}")
+                break  # Stop after first match
