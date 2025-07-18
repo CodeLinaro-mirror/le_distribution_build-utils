@@ -105,7 +105,7 @@ def get_elements(xml_root, element_name):
     return xml_root.findall(element_name)
 
 
-def create_project_info_file(workspace, project, revision, au, group, out_path=None):
+def create_project_info_file(workspace, project, group, out_path=None):
     """
     Creates a project information file based on the provided parameters.
 
@@ -113,13 +113,9 @@ def create_project_info_file(workspace, project, revision, au, group, out_path=N
     -----
     - workspace (str): The workspace directory.
     - project (str): The name of the project.
-    - revision (str): The revision identifier.
-    - au (str): Optional alternate revision identifier.
     - group (str): Optional group name for filtering projects.
     - out_path (str): Optional path to the output file.
     """
-    if au:
-        revision = au
     manifest_file  = os.path.join(workspace, '.repo/manifests/default.xml')
     if os.path.exists(manifest_file):
         xml_root = etree.parse(manifest_file)

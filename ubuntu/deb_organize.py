@@ -42,8 +42,6 @@ def generate_manifest_map(WORKSPACE_DIR, OUT_FILE='manifest_map.txt'):
 
     create_project_info_file(WORKSPACE_DIR,
                             'le/product/manifest',
-                            'LE.QCLINUX.1.0',
-                            'AU_LINUX_EMBEDDED_LE.QCLINUX.1.0_TARGET_ALL.01.013.495',
                             None,
                             out_file_path)
 
