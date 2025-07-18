@@ -28,6 +28,7 @@ from helpers import create_new_directory, umount_dir, check_if_root, check_and_a
 from deb_organize import generate_manifest_map
 from pack_deb import PackagePacker
 import glob
+from flat_meta import create_flat_meta
 
 def parse_arguments():
     """
@@ -85,6 +86,7 @@ def parse_arguments():
                         help='Build starter image (deprecated)')
     parser.add_argument('--input-image-file', type=str, required=False,
                         help='Path for input system.img (deprecated)')
+    parser.add_argument('--flat-meta', type=str, required=False,help='Flat meta')
 
     args = parser.parse_args()
 
@@ -122,10 +124,13 @@ DEBIAN_INSTALL_DIR = args.debians_path
 IF_BUILD_KERNEL = args.build_kernel
 IF_GEN_DEBIANS = args.gen_debians
 IF_PACK_IMAGE = args.pack_image
+IF_FLAT_META = args.flat_meta
 IS_CLEANUP_ENABLED = not args.nocleanup
 IS_PREPARE_SOURCE = args.prepare_sources
 
 PACK_VARIANT = args.pack_variant
+
+TARGET_HW = args.flat_meta
 
 # Define mount directory
 MOUNT_DIR = args.mount_dir if args.mount_dir else os.path.join(WORKSPACE_DIR, "build")
@@ -265,6 +270,13 @@ if IF_PACK_IMAGE:
             cleanup_directory(MOUNT_DIR)
         if ERROR_EXIT_BUILD:
             exit(1)
+
+if IF_FLAT_META:
+    try:
+        create_flat_meta(PACK_VARIANT, IMAGE_TYPE, TARGET_HW, WORKSPACE_DIR)
+    except Exception as e:
+        logger.error(e)
+        ERROR_EXIT_BUILD = True
 
 # Change permissions for output directories if cleanup is enabled
 if IS_CLEANUP_ENABLED:
