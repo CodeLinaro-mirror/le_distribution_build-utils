@@ -1,3 +1,9 @@
+'''
+generate_project_info_from_manifest.py
+
+This script interacts with a file data API, processes XML data, and generates project information files.
+'''
+
 from __future__ import print_function
 import argparse
 import collections
@@ -8,6 +14,23 @@ from helpers import logger
 
 
 def get_file_data_api_response(project, revision, file_name):
+    """
+    Fetches file data from the API for a given project and revision.
+
+    Args:
+    -----
+    - project (str): The name of the project.
+    - revision (str): The revision identifier.
+    - file_name (str): The name of the file to retrieve.
+
+    Returns:
+    --------
+    - Response: The response object from the API call.
+
+    Raises:
+    -------
+    - Exception: If there is an error during the API request.
+    """
     params = {'project': project, 'revision': revision,
                   'file': file_name}
     url = 'https://{}/api/v1/get_file_data/'.format('aim.qualcomm.com')
@@ -18,6 +41,17 @@ def get_file_data_api_response(project, revision, file_name):
 
 
 def parse_from_string(xml_string):
+    """
+    Parses an XML string into an ElementTree object.
+
+    Args:
+    -----
+    - xml_string (str): The XML string to parse.
+
+    Returns:
+    --------
+    - Element: The parsed XML as an ElementTree object.
+    """
     from builtins import bytes
     if isinstance(xml_string, str):
         xml_string = bytes(xml_string, encoding='utf-8')
@@ -26,7 +60,15 @@ def parse_from_string(xml_string):
 
 def etree_to_dict(node):
     """
-    Convert an elementtree to dict
+    Converts an ElementTree node into a dictionary representation.
+
+    Args:
+    -----
+    - node (Element): The XML node to convert.
+
+    Returns:
+    --------
+    - dict: Dictionary representation of the XML node.
     """
     d = {node.tag: {} if node.attrib else None}
     children = list(node)
@@ -52,7 +94,21 @@ def etree_to_dict(node):
 
 def get_file_data_as_dict(project, revision, filename='default.xml'):
     """
-    get the file data and convert to dict
+    Retrieves file data from the API and converts it to a dictionary.
+
+    Args:
+    -----
+    - project (str): The name of the project.
+    - revision (str): The revision identifier.
+    - filename (str): The name of the file to retrieve (default is 'default.xml').
+
+    Returns:
+    --------
+    - dict: Dictionary containing the file data.
+
+    Raises:
+    -------
+    - Exception: If there is an error during the API request or data processing.
     """
     response = get_file_data_api_response(project, revision, filename)
     try:
@@ -65,6 +121,15 @@ def get_file_data_as_dict(project, revision, filename='default.xml'):
 
 
 def write_to_file(workspace, projects, out_path=None):
+    """
+    Writes project information to a specified file.
+
+    Args:
+    -----
+    - workspace (str): The workspace directory.
+    - projects (list): List of project dictionaries.
+    - out_path (str): Optional path to the output file.
+    """
     if not out_path:
         out_path = os.path.join(workspace,'project_info.txt')
     with open(out_path, 'w') as f:
@@ -80,10 +145,34 @@ def write_to_file(workspace, projects, out_path=None):
 
 
 def get_elements(xml_root, element_name):
+    """
+    Retrieves all elements with a specified name from the XML root.
+
+    Args:
+    -----
+    - xml_root (Element): The root of the XML tree.
+    - element_name (str): The name of the elements to find.
+
+    Returns:
+    --------
+    - list: List of found elements.
+    """
     return xml_root.findall(element_name)
 
 
 def create_project_info_file(workspace, project, revision, au, group, out_path=None):
+    """
+    Creates a project information file based on the provided parameters.
+
+    Args:
+    -----
+    - workspace (str): The workspace directory.
+    - project (str): The name of the project.
+    - revision (str): The revision identifier.
+    - au (str): Optional alternate revision identifier.
+    - group (str): Optional group name for filtering projects.
+    - out_path (str): Optional path to the output file.
+    """
     if au:
         revision = au
     manifest_file  = os.path.join(workspace, '.repo/manifests/default.xml')
@@ -106,6 +195,18 @@ def create_project_info_file(workspace, project, revision, au, group, out_path=N
 
 
 def get_comp_tag_for_groups(projects, group):
+    """
+    Retrieves the component tag for projects belonging to a specified group.
+
+    Args:
+    -----
+    - projects (list): List of project dictionaries.
+    - group (str): The group name to filter by.
+
+    Returns:
+    --------
+    - str or None: Component tag string or None if not found.
+    """
     for project in projects:
         if project.get('groups') == group:
             if project.get('x-component-tag'):

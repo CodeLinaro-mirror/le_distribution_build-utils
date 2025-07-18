@@ -1,3 +1,20 @@
+"""
+build.py
+
+This script automates the process of building a Debian-based system image. It handles the following tasks:
+- Parses command-line arguments to configure the build process.
+- Checks for root privileges and creates necessary directories.
+- Optionally builds the kernel and organizes kernel-related Debian packages.
+- Generates Debian binary packages if specified.
+- Packs the system image with the generated Debian packages.
+- Cleans up temporary files and directories after the build process.
+
+Usage:
+------
+- Run this script as a root user with the required command-line arguments to build the system image.
+
+"""
+
 import os
 import random
 import shutil
@@ -12,6 +29,17 @@ from deb_organize import generate_manifest_map
 from pack_deb import PackagePacker
 
 def parse_arguments():
+    """
+    Parses command-line arguments for the build process.
+
+    Returns:
+    --------
+    argparse.Namespace: The parsed command-line arguments.
+
+    Raises:
+    -------
+    SystemExit: If any of the specified paths are not absolute.
+    """
     parser = argparse.ArgumentParser(description="Process command line arguments.")
 
     parser.add_argument('--apt-server-config', type=str, required=False, default="deb [arch=arm64 trusted=yes] http://pkg.qualcomm.com noble/stable main",
@@ -68,11 +96,14 @@ def parse_arguments():
 
     return args
 
+# Parse command-line arguments
 args = parse_arguments()
 
+# Set up workspace and image parameters
 WORKSPACE_DIR = args.workspace
 IMAGE_TYPE = args.flavor
 
+# Generate a unique chroot name if not provided
 CHROOT_NAME = args.chroot_name if args.chroot_name else f"ubuntu-{date.today()}-{random.randint(0, 10000)}"
 
 OUT_SYSTEM_IMG = args.output_image_file
@@ -90,9 +121,11 @@ IS_PREPARE_SOURCE = args.prepare_sources
 
 PACK_VARIANT = args.pack_variant
 
+# Define mount directory
 MOUNT_DIR = args.mount_dir if args.mount_dir else os.path.join(WORKSPACE_DIR, "build")
 MOUNT_DIR = os.path.join(MOUNT_DIR, CHROOT_NAME)
 
+# Define kernel and output directories
 KERNEL_DIR = args.kernel_src_dir if args.kernel_src_dir else os.path.join(WORKSPACE_DIR, "kernel")
 SOURCES_DIR = os.path.join(WORKSPACE_DIR, "sources")
 OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
@@ -103,10 +136,12 @@ KERNEL_DEB_OUT_DIR = args.kernel_dest_dir if args.kernel_dest_dir else OSS_DEB_O
 PROP_DEB_OUT_DIR = os.path.join(DEB_OUT_DIR, "prop")
 TEMP_DIR = os.path.join(DEB_OUT_DIR, "temp")
 
+# Check for root privileges
 if not check_if_root():
     logger.error('Please run this script as root user.')
     exit(1)
 
+# Create necessary directories for the build process
 create_new_directory(WORKSPACE_DIR, delete_if_exists=False)
 create_new_directory(MOUNT_DIR, delete_if_exists=False)
 create_new_directory(KERNEL_DIR, delete_if_exists=False)
@@ -118,12 +153,14 @@ create_new_directory(OSS_DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(PROP_DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(TEMP_DIR, delete_if_exists=True)
 
+# Set up APT server configuration and generate manifest map
 APT_SERVER_CONFIG = [config.strip() for config in args.apt_server_config.split(',')] if args.apt_server_config else None
 MANIFEST_MAP = generate_manifest_map(WORKSPACE_DIR)
 APT_SERVER_CONFIG = list(set(APT_SERVER_CONFIG)) if APT_SERVER_CONFIG else None
 
 ERROR_EXIT_BUILD = False
 
+# Build the kernel if specified
 if IF_BUILD_KERNEL:
     try:
         os.chdir(WORKSPACE_DIR)
@@ -135,6 +172,7 @@ if IF_BUILD_KERNEL:
         logger.error(e)
         ERROR_EXIT_BUILD = True
 
+# Exit if there was an error during kernel build
 if ERROR_EXIT_BUILD:
     exit(1)
 
@@ -150,8 +188,11 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
         if DEBIAN_INSTALL_DIR and os.path.exists(DEBIAN_INSTALL_DIR):
             DEBIAN_INSTALL_DIR_APT = build_deb_package_gz(DEBIAN_INSTALL_DIR, start_server=True)
 
+        # Initialize the PackageBuilder to load packages
         builder = PackageBuilder(MOUNT_DIR, SOURCES_DIR, APT_SERVER_CONFIG, CHROOT_NAME, MANIFEST_MAP, TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE)
         builder.load_packages()
+
+        # Build a specific package if provided, otherwise build all packages
         if BUILD_PACKAGE_NAME:
             # TODO: Check if package is available
             can_build = builder.build_specific_package(BUILD_PACKAGE_NAME)
@@ -169,15 +210,18 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
         if ERROR_EXIT_BUILD:
             exit(1)
 
+# Set output system image path if not provided
 if OUT_SYSTEM_IMG is None:
     OUT_SYSTEM_IMG = os.path.join(OUT_DIR, IMAGE_NAME)
 
+# Pack the image if specified
 if IF_PACK_IMAGE:
     packer = None
     cleanup_file(OUT_SYSTEM_IMG)
     create_new_directory(MOUNT_DIR)
     try:
         build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
+        # Initialize the PackagePacker to build the system image
         packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED)
 
         packer.build_image()
@@ -193,6 +237,7 @@ if IF_PACK_IMAGE:
         if ERROR_EXIT_BUILD:
             exit(1)
 
+# Change permissions for output directories if cleanup is enabled
 if IS_CLEANUP_ENABLED:
     try:
         change_folder_perm_read_write(OSS_DEB_OUT_DIR)
