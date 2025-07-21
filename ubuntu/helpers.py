@@ -20,10 +20,10 @@ from constants import TERMINAL, HOST_FS_MOUNT
 
 class ColorFormatter(logging.Formatter):
     COLORS = {
-        'DEBUG': '\033[94m', # Blue
-        'INFO': '\033[92m', # Green
-        'WARNING': '\033[93m', # Yellow
-        'ERROR': '\033[91m', # Red
+        'DEBUG': '\033[94m',    # Blue
+        'INFO': '\033[92m',     # Green
+        'WARNING': '\033[93m',  # Yellow
+        'ERROR': '\033[91m',    # Red
         'CRITICAL': '\033[95m', # Magenta
     }
     RESET = '\033[0m'
@@ -33,17 +33,16 @@ class ColorFormatter(logging.Formatter):
         message = super().format(record)
         return f"{log_color}{message}{self.RESET}"
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s || %(levelname)s || %(message)s",
-    datefmt="%H:%M:%S"
-)
+logger = logging.getLogger("DEB-BUILD")
+logger.setLevel(logging.DEBUG)
+logger.propagate = False
 
 handler = logging.StreamHandler()
-formatter = ColorFormatter('%(levelname)s: %(message)s')
+formatter = ColorFormatter(
+    fmt="%(asctime)s || %(levelname)s || %(message)s",
+    datefmt="%H:%M:%S"
+)
 handler.setFormatter(formatter)
-
-logger = logging.getLogger("DEB-BUILD")
 logger.addHandler(handler)
 
 def check_if_root() -> bool:
@@ -73,11 +72,10 @@ def check_and_append_line_in_file(file_path, line_to_check, append_if_missing=Fa
     if not os.path.exists(file_path):
         logger.error(f"{file_path} does not exist.")
         exit(1)
-    
-    lines = []
+
     with open(file_path, "r") as file:
         lines = file.readlines()
-    
+
     for line in lines:
         if line.strip() == line_to_check.strip():
             return True
@@ -88,7 +86,6 @@ def check_and_append_line_in_file(file_path, line_to_check, append_if_missing=Fa
         return True
 
     return False
-
 
 def run_command(command, check=True, get_object=False, cwd=None):
     """
@@ -120,7 +117,13 @@ def run_command(command, check=True, get_object=False, cwd=None):
         raise Exception(e)
 
     if result.stderr:
-        logger.error(f"Error: {result.stderr.strip()}")
+        stderr_output = result.stderr.strip()
+        if stderr_output:
+            if result.returncode == 0:
+                logger.warning(f"Stderr: {stderr_output}")
+            else:
+                logger.error(f"Error: {stderr_output}")
+
     return result.stdout.strip()
 
 def run_command_for_result(command):
