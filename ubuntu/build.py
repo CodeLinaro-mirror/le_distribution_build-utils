@@ -21,7 +21,7 @@ import shutil
 import argparse
 from build_kernel import build_kernel, reorganize_kernel_debs
 from build_dtb import build_dtb
-from build_deb import PackageBuilder
+from build_deb import PackageBuilder, PackageNotFoundError, PackageBuildError
 from constants import *
 from datetime import date
 from helpers import create_new_directory, umount_dir, check_if_root, check_and_append_line_in_file, cleanup_file, cleanup_directory, change_folder_perm_read_write, print_build_logs, start_local_apt_server, build_deb_package_gz, mount_img, pull_debs_wget
@@ -227,11 +227,10 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
 
         # Build a specific package if provided, otherwise build all packages
         if BUILD_PACKAGE_NAME:
-            # TODO: Check if package is available
-            can_build = builder.build_specific_package(BUILD_PACKAGE_NAME)
-            if not can_build:
-                raise Exception(f"Unable to build {BUILD_PACKAGE_NAME}")
+            logger.debug(f"Building specific package: {BUILD_PACKAGE_NAME}")
+            builder.build_specific_package(BUILD_PACKAGE_NAME)
         else:
+            logger.debug("Building all packages")
             builder.build_all_packages()
 
     except Exception as e:

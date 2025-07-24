@@ -19,6 +19,18 @@ from helpers import check_if_root, run_command, check_and_append_line_in_file, c
 from deb_organize import search_manifest_map_for_path
 from color_logger import logger
 
+class PackageNotFoundError(Exception):
+    """
+    Exception raised when a package is not found.
+    """
+    pass
+
+class PackageBuildError(Exception):
+    """
+    Exception raised when there is an error during package building.
+    """
+    pass
+
 class PackageBuilder:
     def __init__(self, MOUNT_DIR, SOURCE_DIR, APT_SERVER_CONFIG, CHROOT_NAME, \
     MANIFEST_MAP=None, TEMP_DIR=None, DEB_OUT_DIR=None, DEB_OUT_DIR_APT=None, DEBIAN_INSTALL_DIR=None, \
@@ -298,7 +310,11 @@ class PackageBuilder:
                 if config.strip():
                     cmd += f" --extra-repository=\"{config.strip()}\""
 
-        run_command(cmd, cwd=repo_path)
+        try:
+            run_command(cmd, cwd=repo_path)
+        except Exception as e:
+            logger.error(f"Failed to build {packages}: {e}")
+            raise PackageBuildError(f"Failed to build {packages}: {e}")
 
         self.reorganize_dsc_in_oss_prop(repo_path)
         self.reorganize_deb_in_oss_prop(repo_path)
@@ -326,20 +342,34 @@ class PackageBuilder:
 
         Returns:
         --------
-        - bool: True if the package was found and built, False otherwise.
+
+        Raises:
+        -------
+        - PackageNotFoundError: If the package is not found in the packages list.
+        - PackageBuildError: If the package fails to build (raising up from the build_package function).
         """
-        found = False
+
         for package in self.packages:
             if not self.packages[package]['visited']:
                 if package_name in self.packages[package]['packages']:
                     for dep in self.packages[package]['dependencies']:
-                        self.build_specific_package(dep)
                         self.packages[package]['visited'] = True
-                    self.build_package(package)
-                    found = True
+                        logger.debug(f"Building dependency: {dep}")
 
-        if not found:
-            logger.error(f"Package '{package_name}' not found.")
-            return False
-        else:
-            return True
+                        try:
+                            self.build_specific_package(dep)
+                        except PackageNotFoundError as e:
+                            # Its possible that a dependency is not found in the packages list,
+                            # yet the build is successful. Catch the exception, and continue.
+                            logger.error(f"Failed to find dependency: {e}")
+                        except PackageBuildError as e:
+                            # If the dependency build fails, raise the exception up.
+                            logger.error(f"Failed to build dependency: {e}")
+                            raise e
+
+                    # let any potential exception from build_package raise up to the caller
+                    self.build_package(package)
+                    return
+
+        # If we reach here, the package was not found in the packages list.
+        raise PackageNotFoundError(f"Package '{package_name}' not found.")
