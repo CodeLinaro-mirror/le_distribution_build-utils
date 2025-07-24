@@ -12,7 +12,8 @@ import glob
 import shlex
 import tempfile
 import subprocess
-from helpers import logger, cleanup_directory, check_if_root
+from helpers import cleanup_directory, check_if_root
+from color_logger import logger
 
 def build_dtb(deb_dir, deb_file_regex, combined_dtb_filename, out_dir):
     """
@@ -63,7 +64,7 @@ def build_dtb(deb_dir, deb_file_regex, combined_dtb_filename, out_dir):
         if combined_dtb_filename in files:
             file_path = os.path.join(root, combined_dtb_filename)
             break
-    
+
     # Step 3: Process the combined-dtb.dtb file
     if file_path:
         # Step 4: Use a hardcoded block size

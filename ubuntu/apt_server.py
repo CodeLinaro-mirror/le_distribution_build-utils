@@ -10,15 +10,8 @@ import socketserver
 import threading
 import os
 import socket
-import logging
+from color_logger import logger
 
-logger = logging.getLogger("APT-LOCAL")
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s || %(levelname)s || %(message)s",
-    datefmt="%H:%M:%S"
-)
 
 class AptServer:
     def __init__(self, port=8000, directory="debian_packages", max_retries=10):
@@ -59,7 +52,7 @@ class AptServer:
             try:
                 handler = lambda *args, **kwargs: http.server.SimpleHTTPRequestHandler(*args, directory=self.directory, **kwargs)
                 httpd = socketserver.TCPServer(("", self.port), handler)
-                logger.info(f"Serving {self.directory} as HTTP on port {self.port}...")
+                logger.debug(f"Serving {self.directory} as HTTP on port {self.port}...")
                 server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
                 server_thread.start()
                 return server_thread

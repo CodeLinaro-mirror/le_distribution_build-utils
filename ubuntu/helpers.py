@@ -2,7 +2,7 @@
 helper.py
 
 This module provides utilities for managing Debian package builds and related operations.
-It includes functions for executing shell commands, managing files and directories, 
+It includes functions for executing shell commands, managing files and directories,
 logging, and setting up a local APT server.
 """
 
@@ -18,33 +18,7 @@ from pathlib import Path
 from git import Repo
 from apt_server import AptServer
 from constants import TERMINAL, HOST_FS_MOUNT
-
-class ColorFormatter(logging.Formatter):
-    COLORS = {
-        'DEBUG': '\033[94m',    # Blue
-        'INFO': '\033[92m',     # Green
-        'WARNING': '\033[93m',  # Yellow
-        'ERROR': '\033[91m',    # Red
-        'CRITICAL': '\033[95m', # Magenta
-    }
-    RESET = '\033[0m'
-
-    def format(self, record):
-        log_color = self.COLORS.get(record.levelname, self.RESET)
-        message = super().format(record)
-        return f"{log_color}{message}{self.RESET}"
-
-logger = logging.getLogger("DEB-BUILD")
-logger.setLevel(logging.DEBUG)
-logger.propagate = False
-
-handler = logging.StreamHandler()
-formatter = ColorFormatter(
-    fmt="%(asctime)s || %(levelname)s || %(message)s",
-    datefmt="%H:%M:%S"
-)
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+from color_logger import logger
 
 def check_if_root() -> bool:
     """
@@ -130,12 +104,15 @@ def run_command(command, check=True, get_object=False, cwd=None):
     -------
     - Exception: If the command fails and check is True.
     """
-    logger.info(f'Running: {command}')
+
+    logger.debug(f'Running: {command}')
+
     try:
         if not cwd:
             result = subprocess.run(command, shell=True, check=check, capture_output=True, text=True)
         else:
             result = subprocess.run(command, shell=True, check=check, capture_output=True, text=True, cwd=cwd)
+
     except subprocess.CalledProcessError as e:
         logger.error(f"Command failed: {e.stderr.strip() if e.stderr else str(e)}")
         raise Exception(e)
@@ -250,6 +227,9 @@ def cleanup_file(file_path):
     -------
     - Exception: If an error occurs while trying to delete the file.
     """
+
+    logger.debug(f"Cleaning file {file_path}")
+
     try:
         if os.path.exists(file_path):
             os.remove(file_path)
