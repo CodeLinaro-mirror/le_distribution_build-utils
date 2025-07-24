@@ -404,29 +404,31 @@ def print_build_logs(directory):
         logger.error(content)
     logger.info("=====  Build Logs End  ======")
 
-def start_local_apt_server(direc):
+def start_local_apt_server(dir):
     """
     Starts a local APT server in the specified directory and returns the APT repository line.
 
     Args:
     -----
-    - direc (str): The directory to serve as the APT repository.
+    - dir (str): The directory to serve as the APT repository.
 
     Returns:
     --------
     - str: The APT repository line to add to sources.list.
     """
-    server = AptServer(directory=direc, port=random.randint(7500, 8500))
+
+    server = AptServer(directory=dir, port=random.randint(7500, 8500))
     server.start()
+
     return f"deb [trusted=yes arch=arm64] http://localhost:{server.port} stable main"
 
-def build_deb_package_gz(direc, start_server=True) -> str:
+def build_deb_package_gz(dir, start_server=True) -> str:
     """
     Builds a Debian package and creates a compressed Packages file, optionally starting a local APT server.
 
     Args:
     -----
-    - direc (str): The directory where the package is built.
+    - dir (str): The directory where the package is built.
     - start_server (bool): If True, starts a local APT server after building the package.
 
     Returns:
@@ -437,23 +439,45 @@ def build_deb_package_gz(direc, start_server=True) -> str:
     -------
     - Exception: If an error occurs while creating the Packages file.
     """
-    global servers
+
+    packages_dir = os.path.join(dir, 'dists', 'stable', 'main', 'binary-arm64')
+    packages_path = os.path.join(packages_dir, "Packages")
+
     try:
-        packages_dir = os.path.join(direc, 'dists', 'stable', 'main', 'binary-arm64')
         os.makedirs(packages_dir, exist_ok=True)
 
-        cmd = f'dpkg-scanpackages -m . /dev/null > {os.path.join(packages_dir, "Packages")}'
-        run_command(cmd, cwd=direc)
+        cmd = f'dpkg-scanpackages -m . > {packages_path}'
 
-        packages_path = os.path.join(packages_dir, "Packages")
-        run_command(f"gzip -k -f {packages_path}")
+        result = subprocess.run(cmd, shell=True, cwd=dir, check=False, capture_output=True, text=True)
 
-        logger.info(f"Packages file created in {direc}")
+        if result.returncode != 0:
+            logger.error(f"Error running : {cmd}")
+            logger.error(f"stdout : {result.stdout}")
+            logger.error(f"stderr : {result.stderr}")
+
+            raise Exception(result.stderr)
+
+        # Even with a successful exit code, dpkg-scanpackages still outputs the number of entries written to stderr        logger.debug(result.stderr.strip())
+
+
+        cmd = f"gzip -k -f {packages_path}"
+        result = subprocess.run(cmd, shell=True, cwd=dir, check=False, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            logger.error(f"Error running : {cmd}")
+            logger.error(f"stdout : {result.stdout}")
+            logger.error(f"stderr : {result.stderr}")
+
+            raise Exception(result.stderr)
+
+        logger.debug(f"Packages file created at {packages_path}.gz")
+
     except Exception as e:
-        logger.error(f"Error creating Packages file in {direc}, Ignoring.")
+        logger.error(f"Error creating Packages file in {dir} : {e}")
+        raise Exception(e)
 
     if start_server:
-        return start_local_apt_server(direc)
+        return start_local_apt_server(dir)
     return None
 
 
