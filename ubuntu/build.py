@@ -31,6 +31,7 @@ from helpers import create_new_directory, umount_dir, check_if_root, check_and_a
 from deb_organize import generate_manifest_map
 from pack_deb import PackagePacker
 from flat_meta import create_flat_meta
+from deb_abi_checker import multiple_repo_deb_abi_checker
 from color_logger import logger
 
 # Check for root privileges
@@ -59,10 +60,11 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(description="Process command line arguments.")
 
-    parser.add_argument('--apt-server-config', type=str, required=False, default="deb [arch=arm64 trusted=yes] http://pkg.qualcomm.com noble/stable main",
+    parser.add_argument('--apt-server-config', type=str, required=False,
+                        default="deb [arch=arm64 trusted=yes] http://pkg.qualcomm.com noble/stable main",
                         help='APT Server configuration to use')
     parser.add_argument('--mount_dir', type=str, required=False,
-                        help='Mount directoryfor builds (default: <workspace>/build)')
+                        help='Mount directory for builds (default: <workspace>/build)')
     parser.add_argument('--workspace', type=str, required=True,
                         help='Workspace directory (mandatory)')
     parser.add_argument('--build-kernel', action='store_true', default=False,
@@ -97,6 +99,8 @@ def parse_arguments():
                         help="Cleanup workspace after build", default=False)
     parser.add_argument("--prepare-sources", action="store_true",
                         help="Prepares sources, does not build", default=False)
+    parser.add_argument("--check-abi", action="store_true",
+                        help="Check ABI compatibility", default=False)
 
     # Deprecated
     parser.add_argument('--skip-starter-image', action='store_true', default=False,
@@ -150,6 +154,7 @@ IS_PREPARE_SOURCE = args.prepare_sources
 PACK_VARIANT = args.pack_variant
 
 TARGET_HW = args.flat_meta
+RUN_ABI_CHECK = args.check_abi
 
 # Define mount directory
 MOUNT_DIR = args.mount_dir if args.mount_dir else os.path.join(WORKSPACE_DIR, "build")
@@ -254,6 +259,37 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             cleanup_directory(MOUNT_DIR)
         if error_during_packages_build:
             logger.critical("Debian package generation error. Exiting.")
+            exit(1)
+
+
+if not RUN_ABI_CHECK:
+    logger.warning("ABI check is disabled. Skipping ABI check.")
+else:
+    error_during_abi_check = False
+
+    try:
+        if not APT_SERVER_CONFIG:
+            raise Exception("No apt server config provided")
+
+        if len(APT_SERVER_CONFIG) > 1:
+            logger.warning("Multiple apt server configs are not supported yet, picking the first one in the list")
+
+        logger.debug("Running the package ABI checker over the temp folder containing all the repo outputs")
+        check_passed = multiple_repo_deb_abi_checker(DEB_OUT_TEMP_DIR, APT_SERVER_CONFIG[0])
+
+        if check_passed:
+            logger.info("ABI check passed.")
+        else:
+            logger.critical("ABI check failed.")
+
+    except Exception as e:
+        logger.critical(f"Exception during the ABI checking : {e}")
+        traceback.print_exc()
+        error_during_abi_check = True
+
+    finally:
+        if error_during_abi_check:
+            logger.critical("ABI check failed. Exiting.")
             exit(1)
 
 # Pack the image if specified
