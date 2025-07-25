@@ -235,6 +235,8 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
         ERROR_EXIT_BUILD = True
 
     finally:
+        if IS_CLEANUP_ENABLED:
+            cleanup_directory(MOUNT_DIR)
         if ERROR_EXIT_BUILD:
             exit(1)
 

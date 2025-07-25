@@ -340,3 +340,5 @@ class PackageBuilder:
         if not found:
             logger.error(f"Package '{package_name}' not found.")
             return False
+        else:
+            return True
