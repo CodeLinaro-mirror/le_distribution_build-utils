@@ -221,7 +221,7 @@ class PackageBuilder:
 
     def reorganize_deb_in_oss_prop(self, repo_path):
         """
-        Reorganizes built .deb files into the appropriate output directory based on the manifest map.
+        Reorganizes built .deb and .ddeb files into the appropriate output directory based on the manifest map.
 
         Args:
         -----
@@ -230,7 +230,7 @@ class PackageBuilder:
         oss_or_prop = search_manifest_map_for_path(self.MANIFEST_MAP, self.SOURCE_DIR, repo_path)
         for root, dirs, files in os.walk(self.TEMP_DIR):
             for file in files:
-                if file.endswith('.deb'):
+                if file.endswith('.deb') or file.endswith('.ddeb'):
                     pkg_name = file.split('_')[0]
                     pkg_dir = os.path.join(self.DEB_OUT_DIR, oss_or_prop, pkg_name)
                     create_new_directory(pkg_dir, delete_if_exists=False)
