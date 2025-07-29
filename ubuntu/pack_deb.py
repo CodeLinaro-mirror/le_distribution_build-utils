@@ -22,7 +22,7 @@ from deb_organize import search_manifest_map_for_path
 from color_logger import logger
 
 class PackagePacker:
-    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH=None):
+    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH=None,QC_FOLDER=None):
         """
         Initializes the PackagePacker instance.
 
@@ -56,6 +56,7 @@ class PackagePacker:
         self.TEMP_DIR = TEMP_DIR
         self.OUT_SYSTEM_IMG = OUT_SYSTEM_IMG
         self.PACKAGES_MANIFEST_PATH = PACKAGES_MANIFEST_PATH
+        self.qc_folder = QC_FOLDER
 
         self.EFI_BIN_PATH = os.path.join(self.OUT_DIR, "efi.bin")
         self.EFI_MOUNT_PATH = os.path.join(self.MOUNT_DIR, "boot", "efi")
@@ -104,31 +105,89 @@ GRUB_DISABLE_LINUX_UUID="true"
 GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default', 'grub')}"""
         run_command(grub_update_cmd)
 
+    def merge_manifests_from_folder(self, folder_path, image_type, subdir_filter=None):
+        """
+        Merges all non-empty manifest files matching image_type in the given folder and subfolders.
+        If subdir_filter is provided, only includes manifests from subdirectories matching it.
+        Returns the path to the merged manifest file.
+        """
+        if not os.path.isdir(folder_path):
+            return None
+
+        merged_manifest_path = os.path.join(self.TEMP_DIR, f"{image_type}.manifest")
+        try:
+            with open(merged_manifest_path, 'w') as merged_file:
+                for root, _, files in os.walk(folder_path):
+                    if subdir_filter and subdir_filter not in os.path.relpath(root, folder_path):
+                        continue
+                    for file in files:
+                        if file == f"{image_type}.manifest":
+                            file_path = os.path.join(root, file)
+                            try:
+                                if os.path.getsize(file_path) > 0:  # Check if file is not empty
+                                    logger.info(f"Including manifest from: {file_path}")
+                                    with open(file_path, 'r') as f:
+                                        merged_file.write(f.read())
+                                        merged_file.write('\n')
+                            except (IOError, OSError) as e:
+                                logger.warning(f"Failed to read manifest file {file_path}: {e}")
+                if os.path.getsize(merged_manifest_path) == 0:
+                    logger.info("No non-empty manifest files found. Removing empty merged file.")
+                    os.remove(merged_manifest_path)
+                    return None
+
+                return merged_manifest_path
+        except (IOError, OSError) as e:
+            logger.error(f"Failed to create or write to merged manifest file: {e}")
+            return None
+
+
+
     def parse_manifests(self):
         """
         Parses the base and QCOM manifests to gather the list of packages to include in the image.
         """
         self.QCOM_MANIFEST = None
-        # 1. User-provided manifest
+
+        # 1. If user provided a manifest path, use it
         if self.PACKAGES_MANIFEST_PATH:
             logger.info(f"Packages manifest path: {self.PACKAGES_MANIFEST_PATH}")
-            # Load packages from user manifest
             self.DEBS = parse_debs_manifest(self.PACKAGES_MANIFEST_PATH)
-            return  # Done if user manifest is found and valid
-
-        # 2. Default manifest(s) from packages/base and/or packages/qcom
-        base_path = os.path.join(self.cur_file, "packages", "base", f"{self.IMAGE_TYPE}.manifest")
-        if os.path.isfile(base_path):
-            self.BASE_MANIFEST = base_path
-            logger.debug(f"Using base manifest: {self.BASE_MANIFEST}")
-            self.DEBS = parse_debs_manifest(self.BASE_MANIFEST)
-            # Also include qcom manifest if variant == qcom
-            if self.VARIANT == "qcom":
-                qcom_path = os.path.join(self.cur_file, "packages", "qcom", f"{self.IMAGE_TYPE}.manifest")
-                self.QCOM_MANIFEST = qcom_path
-                logger.debug(f"Using QCOM manifest: {self.QCOM_MANIFEST}")
-                self.DEBS.extend(parse_debs_manifest(self.QCOM_MANIFEST))
             return
+
+        base_folder = os.path.join(self.cur_file, "packages", "base", f"{self.IMAGE_TYPE}.manifest")
+        if base_folder:
+            self.BASE_MANIFEST = base_folder
+            if os.path.exists(base_folder):
+                self.DEBS = parse_debs_manifest(self.BASE_MANIFEST)
+                logger.info(f"Using base manifests from: {self.BASE_MANIFEST}")
+        else:
+            logger.error("No base manifests found.")
+
+        # 3. Merge qcom manifests if variant is qcom
+        if self.VARIANT == "qcom":
+            qcom_path = os.path.join(self.cur_file, "packages", "qcom", f"{self.IMAGE_TYPE}.manifest")
+            self.QCOM_MANIFEST = qcom_path
+            if os.path.exists(qcom_path):
+                logger.info(f"Using QCOM manifest: {self.QCOM_MANIFEST}")
+                self.DEBS.extend(parse_debs_manifest(self.QCOM_MANIFEST))
+
+        # 4. Merge from qc_folder if provided
+        if self.qc_folder:
+            # Base manifests from qc_folder
+            qc_base_merged = self.merge_manifests_from_folder(self.qc_folder, self.IMAGE_TYPE,"base")
+            logger.info(f"Using base manifests from: {qc_base_merged}")
+            if qc_base_merged:
+                self.DEBS.extend(parse_debs_manifest(qc_base_merged))
+
+            # QCOM manifests from qc_folder
+            if self.VARIANT == "qcom":
+                qc_qcom_merged = self.merge_manifests_from_folder(self.qc_folder, self.IMAGE_TYPE, "qcom")
+                if qc_qcom_merged:
+                    logger.info(f"Using qcom manifests from: {qc_qcom_merged}")
+                    self.DEBS.extend(parse_debs_manifest(qc_qcom_merged))
+            return
+
         # 3. No manifest found: print message and exit
         logger.error("No manifest found. Please provide a valid .manifest file via PACKAGES_MANIFEST_PATH or ensure default manifests exist.")
         exit(1)
