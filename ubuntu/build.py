@@ -19,6 +19,9 @@ import os
 import random
 import shutil
 import argparse
+import traceback
+import glob
+
 from build_kernel import build_kernel, reorganize_kernel_debs
 from build_dtb import build_dtb
 from build_deb import PackageBuilder, PackageNotFoundError, PackageBuildError
@@ -27,9 +30,13 @@ from datetime import date
 from helpers import create_new_directory, umount_dir, check_if_root, check_and_append_line_in_file, cleanup_file, cleanup_directory, change_folder_perm_read_write, print_build_logs, start_local_apt_server, build_deb_package_gz, mount_img, pull_debs_wget
 from deb_organize import generate_manifest_map
 from pack_deb import PackagePacker
-import glob
 from flat_meta import create_flat_meta
 from color_logger import logger
+
+# Check for root privileges
+if not check_if_root():
+    logger.critical('Please run this script as root user.')
+    exit(1)
 
 def parse_arguments():
     """
@@ -106,6 +113,11 @@ def parse_arguments():
             logger.critical(f"Error: {path_arg} must be an absolute path.")
             exit(1)
 
+    # Check for conflicting arguments
+    if args.kernel_deb_path and IF_BUILD_KERNEL:
+        logger.critical('Error: --kernel-deb-path and --build-kernel cannot be used together.')
+        exit(1)
+
     return args
 
 # Parse command-line arguments
@@ -158,15 +170,9 @@ KERNEL_DEB_OUT_DIR = (
 PROP_DEB_OUT_DIR = os.path.join(DEB_OUT_DIR, "prop")
 TEMP_DIR = os.path.join(DEB_OUT_DIR, "temp")
 
-# Check for conflicting arguments
-if args.kernel_deb_path and IF_BUILD_KERNEL:
-    logger.error('Error: --kernel-deb-path and --build-kernel cannot be used together.')
-    exit(1)
-
-# Check for root privileges
-if not check_if_root():
-    logger.error('Please run this script as root user.')
-    exit(1)
+# Set up APT server configuration and generate manifest map
+APT_SERVER_CONFIG = [config.strip() for config in args.apt_server_config.split(',')] if args.apt_server_config else None
+APT_SERVER_CONFIG = list(set(APT_SERVER_CONFIG)) if APT_SERVER_CONFIG else None
 
 # Create necessary directories for the build process
 create_new_directory(WORKSPACE_DIR, delete_if_exists=False)
@@ -180,37 +186,35 @@ create_new_directory(OSS_DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(PROP_DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(TEMP_DIR, delete_if_exists=True)
 
-# Set up APT server configuration and generate manifest map
-APT_SERVER_CONFIG = [config.strip() for config in args.apt_server_config.split(',')] if args.apt_server_config else None
-
 try:
     MANIFEST_MAP = generate_manifest_map(WORKSPACE_DIR)
 except Exception as e:
     logger.error(f"Failed to generate manifest map: {e}")
     MANIFEST_MAP = {}
 
-APT_SERVER_CONFIG = list(set(APT_SERVER_CONFIG)) if APT_SERVER_CONFIG else None
-
-ERROR_EXIT_BUILD = False
-
 # Build the kernel if specified
 if IF_BUILD_KERNEL:
+    error_during_kernel_build = False
+
     try:
         os.chdir(WORKSPACE_DIR)
         build_kernel(KERNEL_DIR)
         reorganize_kernel_debs(WORKSPACE_DIR, KERNEL_DEB_OUT_DIR)
 
         build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
-    except Exception as e:
-        logger.error(e)
-        ERROR_EXIT_BUILD = True
 
-# Exit if there was an error during kernel build
-if ERROR_EXIT_BUILD:
-    exit(1)
+    except Exception as e:
+        logger.critical(f"Exception during kernel build : {e}")
+        traceback.print_exc()
+        error_during_kernel_build = True
+
+    finally:
+        if error_during_kernel_build:
+            logger.critical("Kernel build failed. Exiting.")
+            exit(1)
 
 if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
-    builder = None
+    error_during_packages_build = False
 
     try:
         DEB_OUT_DIR_APT = None
@@ -234,26 +238,34 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             builder.build_all_packages()
 
     except Exception as e:
-        logger.error(e)
-        print_build_logs(TEMP_DIR)
-        ERROR_EXIT_BUILD = True
+        error_during_packages_build = True
+        traceback.print_exc()
+        logger.critical(f"Exception during debian package(s) generation : {e}")
+
+        if isinstance(e, PackageBuildError):
+            # Dont clog the output with the lengty build logs if the error is not
+            # strictly a build error
+            print_build_logs(DEB_OUT_TEMP_DIR)
 
     finally:
         if IS_CLEANUP_ENABLED:
             cleanup_directory(MOUNT_DIR)
-        if ERROR_EXIT_BUILD:
+        if error_during_packages_build:
+            logger.critical("Debian package generation error. Exiting.")
             exit(1)
-
-# Set output system image path if not provided
-if OUT_SYSTEM_IMG is None:
-    OUT_SYSTEM_IMG = os.path.join(OUT_DIR, IMAGE_NAME)
 
 # Pack the image if specified
 if IF_PACK_IMAGE:
+    error_during_image_packing = False
     packer = None
-    cleanup_file(OUT_SYSTEM_IMG)
-    create_new_directory(MOUNT_DIR)
+
+    if OUT_SYSTEM_IMG is None:
+            OUT_SYSTEM_IMG = os.path.join(OUT_DIR, IMAGE_NAME)
+
     try:
+        cleanup_file(OUT_SYSTEM_IMG)
+        create_new_directory(MOUNT_DIR)
+
         files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
         if len(files_check) == 0:
             logger.warning(f"Warning: No files matching {LINUX_MODULES_DEB} exist.pulling it from pkg.qualcomm.com")
@@ -265,16 +277,21 @@ if IF_PACK_IMAGE:
         packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH)
 
         packer.build_image()
+
     except Exception as e:
-        logger.error(e)
-        print_build_logs(TEMP_DIR)
-        ERROR_EXIT_BUILD = True
+        error_during_image_packing = True
+
+        logger.critical(f"Exception during packaging : {e}")
+        traceback.print_exc()
+
+        print_build_logs(DEB_OUT_TEMP_DIR)
         umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=True)
 
     finally:
         if IS_CLEANUP_ENABLED:
             cleanup_directory(MOUNT_DIR)
-        if ERROR_EXIT_BUILD:
+        if error_during_image_packing:
+            logger.critical("Image packing failed. Exiting.")
             exit(1)
 
 if IF_FLAT_META:
@@ -286,13 +303,20 @@ if IF_FLAT_META:
 
 # Change permissions for output directories if cleanup is enabled
 if IS_CLEANUP_ENABLED:
+    error_during_cleanup = False
+
     try:
         change_folder_perm_read_write(OSS_DEB_OUT_DIR)
         change_folder_perm_read_write(PROP_DEB_OUT_DIR)
         change_folder_perm_read_write(DEB_OUT_DIR)
         change_folder_perm_read_write(OUT_DIR)
     except Exception:
-        ERROR_EXIT_BUILD = True
+        error_during_cleanup = True
 
-if ERROR_EXIT_BUILD:
-    exit(1)
+    finally:
+        if error_during_cleanup:
+            logger.critical("Cleanup failed. Exiting.")
+            exit(1)
+
+logger.info("Script execution sucessful")
+exit(0)
