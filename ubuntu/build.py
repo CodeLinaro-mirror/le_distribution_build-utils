@@ -38,6 +38,13 @@ if not check_if_root():
     logger.critical('Please run this script as root user.')
     exit(1)
 
+DIST           = "noble"
+ARCH           = "arm64"
+CHROOT_SUFFIX  = "ubuntu"
+CHROOT_NAME    = DIST + "-" + ARCH + "-" + CHROOT_SUFFIX
+CHROOT_DIR     = "/srv/chroot"
+
+
 def parse_arguments():
     """
     Parses command-line arguments for the build process.
@@ -128,13 +135,8 @@ WORKSPACE_DIR = args.workspace
 IMAGE_TYPE = args.flavor
 PACKAGES_MANIFEST_PATH = args.packages_manifest_path
 
-# Generate a unique chroot name if not provided
-CHROOT_NAME = args.chroot_name if args.chroot_name else f"ubuntu-{date.today()}-{random.randint(0, 10000)}"
-
 OUT_SYSTEM_IMG = args.output_image_file
-
 BUILD_PACKAGE_NAME = args.package
-
 DEBIAN_INSTALL_DIR = args.debians_path
 
 # Process Flags
@@ -168,7 +170,7 @@ KERNEL_DEB_OUT_DIR = (
     else OSS_DEB_OUT_DIR
 )
 PROP_DEB_OUT_DIR = os.path.join(DEB_OUT_DIR, "prop")
-TEMP_DIR = os.path.join(DEB_OUT_DIR, "temp")
+DEB_OUT_TEMP_DIR = os.path.join(DEB_OUT_DIR, "temp")
 
 # Set up APT server configuration and generate manifest map
 APT_SERVER_CONFIG = [config.strip() for config in args.apt_server_config.split(',')] if args.apt_server_config else None
@@ -184,7 +186,7 @@ create_new_directory(OUT_DIR, delete_if_exists=False)
 create_new_directory(DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(OSS_DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(PROP_DEB_OUT_DIR, delete_if_exists=False)
-create_new_directory(TEMP_DIR, delete_if_exists=True)
+create_new_directory(DEB_OUT_TEMP_DIR, delete_if_exists=False) # Don't clear all the temp folders
 
 try:
     MANIFEST_MAP = generate_manifest_map(WORKSPACE_DIR)
@@ -226,7 +228,7 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             DEBIAN_INSTALL_DIR_APT = build_deb_package_gz(DEBIAN_INSTALL_DIR, start_server=True)
 
         # Initialize the PackageBuilder to load packages
-        builder = PackageBuilder(MOUNT_DIR, SOURCES_DIR, APT_SERVER_CONFIG, CHROOT_NAME, MANIFEST_MAP, TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE)
+        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIR, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE)
         builder.load_packages()
 
         # Build a specific package if provided, otherwise build all packages
@@ -274,8 +276,7 @@ if IF_PACK_IMAGE:
             pull_debs_wget(manifest_file_path, KERNEL_DEB_OUT_DIR,KERNEL_DEBS,KERNEL_DEB_URL)
         build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
 
-        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH)
-
+        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH)
         packer.build_image()
 
     except Exception as e:

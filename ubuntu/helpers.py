@@ -162,55 +162,19 @@ def set_env(key, value):
 
 def cleanup_directory(dirname):
     """
-    Cleans up a chroot session if the directory corresponds to a schroot config,
-    otherwise just removes the directory.
+    Removes a directory and its contents.
 
     Args:
     -----
-    - dirname (str): The directory to clean up.
+    - dirname (str): The path to the directory to clean up.
 
     Raises:
     -------
-    - Exception: If any step in the cleanup fails.
+    - Exception: If an error occurs while trying to remove the directory.
     """
     try:
-        chroot_name_fragment = os.path.basename(dirname)
-        config_dir = '/etc/schroot/chroot.d/'
-
-        # Find matching config files that contain the fragment
-        chroot_configs = []
-        if os.path.exists(config_dir):
-            chroot_configs = [
-                f for f in os.listdir(config_dir)
-                if os.path.isfile(os.path.join(config_dir, f)) and chroot_name_fragment in f
-            ]
-
-        if chroot_configs:
-            for config_file in chroot_configs:
-                full_chroot_name = config_file.replace('.conf', '')
-
-                # End schroot session
-                try:
-                    subprocess.run(['schroot', '--end-session', '--chroot', full_chroot_name], check=True)
-                    logger.info(f"Ended schroot session: {full_chroot_name}")
-                except subprocess.CalledProcessError as e:
-                    logger.warning(f"schroot not found, might already be cleared {full_chroot_name}")
-
-                # Unmount if mounted
-                if os.path.ismount(dirname):
-                    subprocess.run(['umount', '-l', dirname], check=True)
-                    logger.info(f"Unmounted {dirname}")
-
-                # Remove config file
-                config_path = os.path.join(config_dir, config_file)
-                os.remove(config_path)
-                logger.info(f"Removed schroot config: {config_path}")
-
-        # Remove directory
         if os.path.exists(dirname):
             shutil.rmtree(dirname)
-            logger.info(f"Removed directory: {dirname}")
-
     except Exception as e:
         logger.error(f"Error cleaning directory {dirname}: {e}")
         raise Exception(e)

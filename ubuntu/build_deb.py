@@ -32,20 +32,20 @@ class PackageBuildError(Exception):
     pass
 
 class PackageBuilder:
-    def __init__(self, MOUNT_DIR, SOURCE_DIR, APT_SERVER_CONFIG, CHROOT_NAME, \
-    MANIFEST_MAP=None, TEMP_DIR=None, DEB_OUT_DIR=None, DEB_OUT_DIR_APT=None, DEBIAN_INSTALL_DIR=None, \
-    DEBIAN_INSTALL_DIR_APT=None, IS_CLEANUP_ENABLED=True, IS_PREPARE_SOURCE=False):
+    def __init__(self, CHROOT_NAME, CHROOT_DIR, SOURCE_DIR, APT_SERVER_CONFIG, \
+    MANIFEST_MAP=None, DEB_OUT_TEMP_DIR=None, DEB_OUT_DIR=None, DEB_OUT_DIR_APT=None, DEBIAN_INSTALL_DIR=None, \
+    DEBIAN_INSTALL_DIR_APT=None, IS_CLEANUP_ENABLED=True, IS_PREPARE_SOURCE=False, DIST= "noble", ARCH="arm64", CHROOT_SUFFIX="ubuntu"):
         """
         Initializes the PackageBuilder instance.
 
         Args:
         -----
-        - MOUNT_DIR (str): The directory where the chroot environment will be mounted.
+        - CHROOT_NAME (str): The name of the chroot environment.
+        - CHROOT_DIR (str): The directory where the chroot environment is found, or created if it doesnt already exist.
         - SOURCE_DIR (str): The source directory containing the packages to build.
         - APT_SERVER_CONFIG (list): Configuration for the APT server.
-        - CHROOT_NAME (str): The name of the chroot environment.
         - MANIFEST_MAP (dict, optional): A mapping of package paths to their properties.
-        - TEMP_DIR (str, optional): Temporary directory for building packages.
+        - DEB_OUT_TEMP_DIR (str, optional): Temporary directory for building packages.
         - DEB_OUT_DIR (str, optional): Output directory for built Debian packages.
         - DEB_OUT_DIR_APT (str, optional): Output directory for APT repository.
         - DEBIAN_INSTALL_DIR (str, optional): Directory for Debian installation files.
@@ -56,19 +56,27 @@ class PackageBuilder:
         if not check_if_root():
             logger.error('Please run this script as root user.')
             exit(1)
+
+        self.CHROOT_NAME = CHROOT_NAME
+        self.CHROOT_DIR  = CHROOT_DIR
+        self.DIST = DIST
+        self.ARCH = ARCH
+        self.CHROOT_SUFFIX = CHROOT_SUFFIX
+
         self.SOURCE_DIR = SOURCE_DIR
         self.DEB_OUT_DIR = DEB_OUT_DIR
-        self.MOUNT_DIR = Path(MOUNT_DIR)
         self.APT_SERVER_CONFIG = APT_SERVER_CONFIG
         self.CHROOT_NAME = CHROOT_NAME
 
-        self.DIST = "noble"
+
+        self.DEBIAN_MIRROR  = "http://ports.ubuntu.com"
+
 
         self.packages = {}
 
         self.MANIFEST_MAP = MANIFEST_MAP
 
-        self.TEMP_DIR = TEMP_DIR
+        self.DEB_OUT_TEMP_DIR = DEB_OUT_TEMP_DIR
 
         self.IS_CLEANUP_ENABLED = IS_CLEANUP_ENABLED
 
@@ -88,29 +96,51 @@ class PackageBuilder:
         -------
         - Exception: If there is an error creating the schroot environment.
         """
-        logger.info(f"Generating schroot configuration for {self.CHROOT_NAME} at {self.MOUNT_DIR}")
-        if not os.path.exists(os.path.join(self.MOUNT_DIR, "root")):
-            out = run_command_for_result(f"sbuild-createchroot --arch=arm64 --chroot-suffix={self.CHROOT_NAME} --components=main,universe {self.DIST} {self.MOUNT_DIR} http://ports.ubuntu.com")
-            if out['returncode'] != 0:
-                if self.IS_CLEANUP_ENABLED:
-                    cleanup_directory(self.MOUNT_DIR)
-                raise Exception(f"Error creating schroot environment: {out['output']}")
-            else:
-                logger.info(f"Schroot environment {self.CHROOT_NAME} created successfully.")
+
+        logger.debug(f"Checking if chroot container '{self.CHROOT_NAME}' is already registered")
+
+        cmd = f"schroot -l | grep chroot:{self.CHROOT_NAME}"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
+        if result.returncode == 0:
+            logger.info(f"Schroot container {self.CHROOT_NAME} already exists. Skipping creation.")
+            return
+
+        logger.warning(f"Schroot container '{self.CHROOT_NAME}' does not exist, creating it for the first time.")
+        logger.warning(f"The chroot will be created in {self.CHROOT_DIR}/{self.CHROOT_NAME}")
+        logger.warning(f"Its config will be stored as /etc/schroot/chroot.d/{self.CHROOT_NAME}.conf")
+
+        # this command creates a chroot environment that will be named "{DIST}-{ARCH}-{SUFFIX}"
+        # We supply our own suffix, otherwise sbuild will use 'sbuild'
+        cmd = f"sbuild-createchroot --arch={self.ARCH}" \
+                                 f" --chroot-suffix=-{self.CHROOT_SUFFIX}" \
+                                 f" --components=main,universe" \
+                                 f" {self.DIST}" \
+                                 f" {self.CHROOT_DIR}/{self.CHROOT_NAME}" \
+                                 f" {self.DEBIAN_MIRROR}"
+
+        logger.debug(f"Creating schroot environment with command: {cmd}")
+
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            raise Exception(f"Error creating schroot environment: {result.stderr}")
         else:
-            logger.warning(f"Schroot environment {self.CHROOT_NAME} already exists at {self.MOUNT_DIR}. Skipping creation.")
+            logger.info(f"Schroot environment {self.CHROOT_NAME} created successfully.")
 
     def load_packages(self):
         """Load package metadata from build_config.py and fetch dependencies from control files."""
         for root, dirs, files in os.walk(self.SOURCE_DIR):
             dirs[:] = [d for d in dirs if d != '.git']
             if 'debian' in dirs:
+                root_name = Path(root).name
                 debian_dir = Path(os.path.join(root, 'debian'))
                 pkg_names, dependencies = self.get_packages_from_control(debian_dir / "control")
 
                 self.packages[str(debian_dir)] = {
                     "debian_dir": debian_dir,
                     "repo_path": Path(root),
+                    "repo_name": root_name,
                     "dependencies": dependencies,
                     "packages": pkg_names,
                     "visited": False
@@ -232,7 +262,7 @@ class PackageBuilder:
 
         return sorted_order
 
-    def reorganize_deb_in_oss_prop(self, repo_path):
+    def reorganize_deb_in_oss_prop(self, repo_path, package_temp_dir):
         """
         Reorganizes built .deb and .ddeb files into the appropriate output directory based on the manifest map.
 
@@ -241,13 +271,14 @@ class PackageBuilder:
         - repo_path (Path): The path to the repository containing the built packages.
         """
         oss_or_prop = search_manifest_map_for_path(self.MANIFEST_MAP, self.SOURCE_DIR, repo_path)
-        for root, dirs, files in os.walk(self.TEMP_DIR):
+        for root, dirs, files in os.walk(package_temp_dir):
             for file in files:
                 if file.endswith('.deb') or file.endswith('.ddeb'):
                     pkg_name = file.split('_')[0]
                     pkg_dir = os.path.join(self.DEB_OUT_DIR, oss_or_prop, pkg_name)
                     create_new_directory(pkg_dir, delete_if_exists=False)
-                    shutil.move(os.path.join(root, file), os.path.join(pkg_dir, file))
+                    shutil.copy(os.path.join(root, file), os.path.join(pkg_dir, file))
+                    logger.info(f'Copied {file} to {pkg_dir}')
 
     def reorganize_dsc_in_oss_prop(self, repo_path):
         """
@@ -274,29 +305,37 @@ class PackageBuilder:
 
         Args:
         -----
-        - package (str): The name of the package to build.
+        - package (str): The name of the package to build, this is a 'debian' folder
 
         Raises:
         -------
         - Exception: If there is an error during the build process.
         """
-        package_info = self.packages[package]
 
+        logger.debug(f"Building debian folder: {package}")
+
+        if not Path(package).is_dir() or Path(package).name != "debian":
+            raise ValueError ("'package' argument must be a debian folder: {package}")
+
+        package_info = self.packages[package]
         repo_path = package_info["repo_path"]
+        repo_name = package_info["repo_name"]
         debian_dir = package_info["debian_dir"]
         packages = package_info['packages']
 
-        logger.info(f"Building {packages}...")
+        package_temp_dir = os.path.join(self.DEB_OUT_TEMP_DIR, repo_name)
+
+        create_new_directory(package_temp_dir, delete_if_exists=True)
+
+        logger.debug(f"Building deb packages : {packages} listed in the Control file")
 
         os.chdir(repo_path)
-        create_new_directory(self.TEMP_DIR)
-        if self.IS_PREPARE_SOURCE:
-            logger.info(f"generating dsc for {packages}...")
-            cmd = f"sbuild --source --no-arch-all --no-arch-any  -d {self.DIST}-arm64{self.CHROOT_NAME} --build-dir {self.TEMP_DIR} "
 
+        if self.IS_PREPARE_SOURCE:
+            logger.debug(f"generating dsc for {packages}...")
+            cmd = f"sbuild --source --no-arch-all --no-arch-any  -d {self.CHROOT_NAME} --build-dir {package_temp_dir}"
         else:
-            cmd = f"sbuild -A --arch=arm64 -d {self.DIST}-arm64{self.CHROOT_NAME} --no-run-lintian \
-            --build-dir {self.TEMP_DIR} --build-dep-resolver=apt"
+            cmd = f"sbuild -A --arch=arm64 -d {self.CHROOT_NAME} --no-run-lintian --build-dir {package_temp_dir} --build-dep-resolver=apt"
 
         if self.DEB_OUT_DIR_APT:
             build_deb_package_gz(self.DEB_OUT_DIR, start_server=False) # Rebuild Packages file
@@ -317,7 +356,7 @@ class PackageBuilder:
             raise PackageBuildError(f"Failed to build {packages}: {e}")
 
         self.reorganize_dsc_in_oss_prop(repo_path)
-        self.reorganize_deb_in_oss_prop(repo_path)
+        self.reorganize_deb_in_oss_prop(repo_path, package_temp_dir)
 
         logger.info(f"{packages} built successfully!")
 
