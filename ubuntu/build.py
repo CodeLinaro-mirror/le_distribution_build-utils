@@ -129,6 +129,9 @@ def parse_arguments():
         logger.critical('Error: --kernel-deb-path and --build-kernel cannot be used together.')
         exit(1)
 
+    if args.chroot_name:
+        logger.warning("The argument --chroot-name is not used anymore. Take it out to silence this warning.")
+
     return args
 
 # Parse command-line arguments
@@ -246,13 +249,13 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
 
     except Exception as e:
         error_during_packages_build = True
-        traceback.print_exc()
+
         logger.critical(f"Exception during debian package(s) generation : {e}")
 
-        if isinstance(e, PackageBuildError):
-            # Dont clog the output with the lengty build logs if the error is not
-            # strictly a build error
-            print_build_logs(DEB_OUT_TEMP_DIR)
+        if not isinstance(e, PackageBuildError):
+            # Dont clog the output with the stack trace if it just a package build exception, the full build log is
+            # already printed in build function if build fails.=
+            traceback.print_exc()
 
     finally:
         if IS_CLEANUP_ENABLED:

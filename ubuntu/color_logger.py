@@ -17,10 +17,6 @@ Usage:
 
 import logging
 import datetime
-from colorama import Fore, Style, init
-
-# Initialize colorama
-init(autoreset=True)
 
 class ColorLogger:
     LEVEL_STRING = {
@@ -32,11 +28,11 @@ class ColorLogger:
     }
 
     LEVEL_COLORS = {
-        logging.DEBUG:    Fore.CYAN,
-        logging.INFO:     Fore.GREEN,
-        logging.WARNING:  Fore.YELLOW,
-        logging.ERROR:    Fore.RED,
-        logging.CRITICAL: Fore.MAGENTA
+        logging.DEBUG:    '\033[94m', #CYAN
+        logging.INFO:     '\033[92m', #GREEN
+        logging.WARNING:  '\033[93m', #YELLOW
+        logging.ERROR:    '\033[91m', #RED
+        logging.CRITICAL: '\033[95m' #MAGENTA
     }
 
     def __init__(self, name: str, level=logging.DEBUG):
@@ -48,9 +44,10 @@ class ColorLogger:
         self.logger.addHandler(handler)
 
     def log(self, level, message):
-        color = self.LEVEL_COLORS.get(level, Fore.WHITE)
+        reset = "\033[0m"
+        color = self.LEVEL_COLORS.get(level, "")
         level_str = self.LEVEL_STRING.get(level, '    ')
-        colored_message = f"{color}{message}{Style.RESET_ALL}"
+        colored_message = f"{color}{message}{reset}"
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
 
         self.logger.log(level, f"[{timestamp}] {level_str} : {colored_message}")

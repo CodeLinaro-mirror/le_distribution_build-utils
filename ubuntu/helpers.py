@@ -105,16 +105,15 @@ def run_command(command, check=True, get_object=False, cwd=None):
     - Exception: If the command fails and check is True.
     """
 
-    logger.debug(f'Running: {command}')
+    logger.debug(f'Running command: {command}')
 
     try:
-        if not cwd:
-            result = subprocess.run(command, shell=True, check=check, capture_output=True, text=True)
-        else:
-            result = subprocess.run(command, shell=True, check=check, capture_output=True, text=True, cwd=cwd)
+        result = subprocess.run(command, shell=True, check=check, capture_output=True, text=True, cwd=cwd)
 
     except subprocess.CalledProcessError as e:
-        logger.error(f"Command failed: {e.stderr.strip() if e.stderr else str(e)}")
+        logger.error(f"Command failed with return value: {e.returncode}")
+        logger.error(f"stderr: {e.stderr.strip() if e.stderr else str(e)}")
+        logger.error(f"stdout: {e.stdout.strip()}")
         raise Exception(e)
 
     if result.stderr:

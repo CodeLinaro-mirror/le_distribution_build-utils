@@ -15,7 +15,7 @@ from pathlib import Path
 from queue import Queue
 from collections import defaultdict, deque
 from constants import *
-from helpers import check_if_root, run_command, check_and_append_line_in_file, create_new_directory, build_deb_package_gz, run_command_for_result
+from helpers import check_if_root, run_command, check_and_append_line_in_file, create_new_directory, build_deb_package_gz, run_command_for_result, print_build_logs
 from deb_organize import search_manifest_map_for_path
 from color_logger import logger
 
@@ -353,6 +353,7 @@ class PackageBuilder:
             run_command(cmd, cwd=repo_path)
         except Exception as e:
             logger.error(f"Failed to build {packages}: {e}")
+            print_build_logs(package_temp_dir)
             raise PackageBuildError(f"Failed to build {packages}: {e}")
 
         self.reorganize_dsc_in_oss_prop(repo_path)
