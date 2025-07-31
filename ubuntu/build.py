@@ -91,18 +91,18 @@ def parse_arguments():
                         help='Absolute path to the package manifest file')
     parser.add_argument('--output-image-file', type=str, required=False,
                         help='Path for output system.img (default: <workspace>/out/system.img)')
-    parser.add_argument('--chroot-name', type=str, required=False,
-                        help='chroot name to use')
     parser.add_argument('--package', type=str, required=False,
                         help='Package to build')
     parser.add_argument("--nocleanup", action="store_true",
                         help="Cleanup workspace after build", default=False)
     parser.add_argument("--prepare-sources", action="store_true",
                         help="Prepares sources, does not build", default=False)
-    parser.add_argument("--check-abi", action="store_true",
-                        help="Check ABI compatibility", default=False)
+    parser.add_argument("--no-abi-check", action="store_true",
+                        help="Skip ABI compatibility check", default=False)
 
     # Deprecated
+    parser.add_argument('--chroot-name', type=str, required=False,
+                        help='chroot name to use')
     parser.add_argument('--skip-starter-image', action='store_true', default=False,
                         help='Build starter image (deprecated)')
     parser.add_argument('--input-image-file', type=str, required=False,
@@ -157,7 +157,7 @@ IS_PREPARE_SOURCE = args.prepare_sources
 PACK_VARIANT = args.pack_variant
 
 TARGET_HW = args.flat_meta
-RUN_ABI_CHECK = args.check_abi
+NO_ABI_CHECK = args.no_abi_check
 
 # Define mount directory
 MOUNT_DIR = args.mount_dir if args.mount_dir else os.path.join(WORKSPACE_DIR, "build")
@@ -265,7 +265,7 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             exit(1)
 
 
-if not RUN_ABI_CHECK:
+if NO_ABI_CHECK:
     logger.warning("ABI check is disabled. Skipping ABI check.")
 else:
     error_during_abi_check = False
