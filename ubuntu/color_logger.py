@@ -38,6 +38,7 @@ class ColorLogger:
     def __init__(self, name: str, level=logging.DEBUG):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
+        self.color_enabled = True
 
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter('%(message)s'))
@@ -50,7 +51,7 @@ class ColorLogger:
         colored_message = f"{color}{message}{reset}"
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
 
-        self.logger.log(level, f"[{timestamp}] {level_str} : {colored_message}")
+        self.logger.log(level, f"[{timestamp}] {level_str} : {colored_message if self.color_enabled else message}")
 
     def debug(self, msg): self.log(logging.DEBUG, msg)
     def info(self, msg): self.log(logging.INFO, msg)
@@ -58,5 +59,10 @@ class ColorLogger:
     def error(self, msg): self.log(logging.ERROR, msg)
     def critical(self, msg): self.log(logging.CRITICAL, msg)
 
+    def disable_color(self):
+        self.color_enabled = False
+
+    def enable_color(self):
+        self.color_enabled = True
 
 logger = ColorLogger("BUILD")
