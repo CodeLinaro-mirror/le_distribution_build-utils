@@ -9,3 +9,4 @@ pymssql==2.3.2
 requests==2.32.3
 smmap==5.0.2
 urllib3==2.3.0
+abipkgdiff==2.4.0
