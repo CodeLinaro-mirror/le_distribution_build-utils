@@ -266,7 +266,7 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
 
 
 if NO_ABI_CHECK:
-    logger.warning("ABI check is disabled. Skipping ABI check.")
+    logger.warning("ABI check is explicitely disabled. Skipping ABI check.")
 else:
     error_during_abi_check = False
 
