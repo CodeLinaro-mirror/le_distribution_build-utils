@@ -164,8 +164,7 @@ TARGET_HW = args.flat_meta
 NO_ABI_CHECK = args.no_abi_check
 
 # Define mount directory
-MOUNT_DIR = args.mount_dir if args.mount_dir else os.path.join(WORKSPACE_DIR, "build")
-MOUNT_DIR = os.path.join(MOUNT_DIR, CHROOT_NAME)
+MOUNT_DIR = args.mount_dir if args.mount_dir else os.path.join(WORKSPACE_DIR, "build/mount")
 
 # Define kernel and output directories
 KERNEL_DIR = args.kernel_src_dir if args.kernel_src_dir else os.path.join(WORKSPACE_DIR, "kernel")
@@ -309,6 +308,7 @@ if IF_PACK_IMAGE:
 
     try:
         cleanup_file(OUT_SYSTEM_IMG)
+        umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=True)
         create_new_directory(MOUNT_DIR)
 
         files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
