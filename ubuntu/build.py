@@ -132,6 +132,10 @@ def parse_arguments():
     if args.chroot_name:
         logger.warning("The argument --chroot-name is not used anymore. Take it out to silence this warning.")
 
+    if 'lnxbuild' in args.workspace:
+        logger.disable_color()
+        logger.info("the string 'lnxbuild' was detected in the workspace path, which indicates a CI build. Turning off the color encoding for the logging to avoid polluting the log with special characters")
+
     return args
 
 # Parse command-line arguments
@@ -301,7 +305,7 @@ if IF_PACK_IMAGE:
     packer = None
 
     if OUT_SYSTEM_IMG is None:
-            OUT_SYSTEM_IMG = os.path.join(OUT_DIR, IMAGE_NAME)
+        OUT_SYSTEM_IMG = os.path.join(OUT_DIR, IMAGE_NAME)
 
     try:
         cleanup_file(OUT_SYSTEM_IMG)
