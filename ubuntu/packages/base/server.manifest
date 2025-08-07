@@ -77,7 +77,7 @@ fdisk	2.39.3-9ubuntu6.2
 file	1:5.45-3build1
 finalrd	9build1
 findutils	4.9.0-5build1
-firmware-qcom-hlosfw	1.0.00005-1
+firmware-qcom-hlosfw	1.0.00008-1
 firmware-sof-signed	2023.12.1-1ubuntu1.5
 fonts-ubuntu-console	0.869+git20240321-0ubuntu1
 friendly-recovery	0.2.42
