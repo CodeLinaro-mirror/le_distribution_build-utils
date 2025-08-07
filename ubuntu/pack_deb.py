@@ -218,6 +218,23 @@ noble \
             else:
                 logger.info("Grub updated successfully.")
 
+        self.extract_manifest(self.IMAGE_TYPE)
+
         if self.IS_CLEANUP_ENABLED:
             umount_dir(self.EFI_MOUNT_PATH)
             umount_dir(self.MOUNT_DIR, UMOUNT_HOST_FS=True)
+
+    def extract_manifest(self, flavor):
+        """
+        Extracts the list of installed packages and their versions from the mounted system image
+        and saves it as a <flavor>.manifest file in the OUT_DIR.
+        """
+        manifest_path = os.path.join(self.OUT_DIR, f"{flavor}.manifest")
+        command = f"chroot {self.MOUNT_DIR} dpkg-query -W -f='${{Package}}\\t${{Version}}\\n' > {manifest_path}"
+        result = run_command_for_result(command)
+
+        if result['returncode'] != 0:
+            logger.error(f"Failed to extract manifest for {flavor}: {result['output']}")
+        else:
+            logger.info(f"Manifest for {flavor} saved to {manifest_path}")
+
