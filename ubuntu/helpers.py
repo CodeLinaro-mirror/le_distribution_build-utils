@@ -75,7 +75,7 @@ def parse_debs_manifest(manifest_path):
             for line in f:
                 line = line.strip()
                 if line and not line.startswith('#'):
-                    parts = list(line.split('\t'))
+                    parts = list(line.split())
                     DEBS.append({
                         'package': parts[0],
                         'version': parts[1] if len(parts) > 1 else None,
