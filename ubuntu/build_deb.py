@@ -52,37 +52,24 @@ class PackageBuilder:
         - IS_CLEANUP_ENABLED (bool, optional): Flag to enable cleanup of the mount directory.
         - IS_PREPARE_SOURCE (bool, optional): If True, prepares the source directory before building. Defaults to False.
         """
-        if not check_if_root():
-            logger.error('Please run this script as root user.')
-            exit(1)
-
         self.CHROOT_NAME = CHROOT_NAME
         self.CHROOT_DIR  = CHROOT_DIR
         self.DIST = DIST
         self.ARCH = ARCH
         self.CHROOT_SUFFIX = CHROOT_SUFFIX
-
         self.SOURCE_DIR = SOURCE_DIR
         self.DEB_OUT_DIR = DEB_OUT_DIR
         self.APT_SERVER_CONFIG = APT_SERVER_CONFIG
         self.CHROOT_NAME = CHROOT_NAME
-
-
-        self.DEBIAN_MIRROR  = "http://ports.ubuntu.com"
-
-
-        self.packages = {}
-
         self.MANIFEST_MAP = MANIFEST_MAP
-
         self.DEB_OUT_TEMP_DIR = DEB_OUT_TEMP_DIR
-
         self.IS_CLEANUP_ENABLED = IS_CLEANUP_ENABLED
-
         self.DEB_OUT_DIR = DEB_OUT_DIR
         self.DEB_OUT_DIR_APT = DEB_OUT_DIR_APT
         self.DEBIAN_INSTALL_DIR_APT = DEBIAN_INSTALL_DIR_APT
         self.IS_PREPARE_SOURCE = IS_PREPARE_SOURCE
+        self.DEBIAN_MIRROR  = "http://ports.ubuntu.com"
+        self.packages = {}
 
         self.generate_schroot_config()
 
@@ -260,42 +247,91 @@ class PackageBuilder:
 
         return sorted_order
 
-    def reorganize_deb_in_oss_prop(self, repo_path, package_temp_dir):
+    def reorganize_outputs_in_oss_prop(self, repo_source_path, repo_build_tmp_dir):
         """
-        Reorganizes built .deb and .ddeb files into the appropriate output directory based on the manifest map.
+        Reorganizes built packages files into the appropriate output directory based on the manifest map.
+        Also reorganizes the 'dsc' file form the repo source path.
+
+        A given 'repo_build_tmp_dir' is a folder containing all the built packages for a given repository.
+        In most cases it contains one .deb package, but it is possible that building one repo yields more than one package
+        For any .deb package, there is also almost always an associated -dev.deb and -dbgsym.ddeb package.
+        In some cases, it is possible that for a given package, only a -dev.deb file exists, no .deb.
 
         Args:
         -----
-        - repo_path (Path): The path to the repository containing the built packages.
+        - repo_source_path (Path): The path to the repository containing the sources of the built packages.
+        - repo_build_tmp_dir (Path): The path to the temporary directory where the built packages are stored.
         """
-        oss_or_prop = search_manifest_map_for_path(self.MANIFEST_MAP, self.SOURCE_DIR, repo_path)
-        for root, dirs, files in os.walk(package_temp_dir):
-            for file in files:
-                if file.endswith('.deb') or file.endswith('.ddeb'):
-                    pkg_name = file.split('_')[0]
-                    pkg_dir = os.path.join(self.DEB_OUT_DIR, oss_or_prop, pkg_name)
-                    create_new_directory(pkg_dir, delete_if_exists=False)
-                    shutil.copy(os.path.join(root, file), os.path.join(pkg_dir, file))
-                    logger.info(f'Copied {file} to {pkg_dir}')
 
-    def reorganize_dsc_in_oss_prop(self, repo_path):
-        """
-        Reorganizes .dsc files into the appropriate output directory based on the manifest map.
+        # Look back into the source directory manifest to determine if the package is OSS (open source) or PROP (proprietary).
+        oss_or_prop = search_manifest_map_for_path(self.MANIFEST_MAP, self.SOURCE_DIR, repo_source_path)
 
-        Args:
-        -----
-        - repo_path (Path): The path to the repository containing the .dsc files.
-        """
-        oss_or_prop = search_manifest_map_for_path(self.MANIFEST_MAP, self.SOURCE_DIR, repo_path)
-        parent_dir = repo_path.parent
+        repo_parent_path = repo_source_path.parent
 
-        for file in os.listdir(parent_dir):
-            file_path = parent_dir / file
-            if file_path.is_file() and file.endswith('.dsc'):
-                pkg_name = file.split('_')[0]
-                pkg_dir = os.path.join(self.DEB_OUT_DIR, oss_or_prop, pkg_name)
-                create_new_directory(pkg_dir, delete_if_exists=False)
-                shutil.move(str(file_path), os.path.join(pkg_dir, file))
+        # Create a list of all the packages (.deb, -dev.deb, -dbgsym.ddeb)
+        files = os.listdir(repo_build_tmp_dir)
+        deb_files = [f for f in files if f.endswith('.deb')  and "-dev" not in f]
+        dev_files = [f for f in files if f.endswith('.deb')  and "-dev"     in f]
+        dbg_files = [f for f in files if f.endswith('.ddeb') and "-dbgsym"  in f]
+
+        # Isolate all the canonical package names (i.e. remove the version and architecture from the filenames)
+        deb_pkg_names = [f.split('_')[0]                         for f in deb_files]
+        dev_pkg_names = [f.split('_')[0].removesuffix("-dev")    for f in dev_files]
+        dbg_pkg_names = [f.split('_')[0].removesuffix("-dbgsym") for f in dbg_files]
+
+        # Second pass to remove all the major version that often suffix the package names
+        # The norm is that packages that include the major in the deb name DO NOT include it in the dev
+        # this ensures we deal with root package name and not doubles when we combine the lists below
+        deb_pkg_names = [(f[:-1] if f[-1].isdigit() else f) for f in deb_pkg_names]
+        dev_pkg_names = [(f[:-1] if f[-1].isdigit() else f) for f in dev_pkg_names]
+        dbg_pkg_names = [(f[:-1] if f[-1].isdigit() else f) for f in dbg_pkg_names]
+
+        package_names = list(set(deb_pkg_names) | set(dev_pkg_names) | set(dbg_pkg_names))
+
+        # Important that the list be sorted from the longest package name to the shortest
+        # Starting with the longest and removing it from the _files lists ensures we deal
+        # properly specificaly with the edge case or qcom-adreno/qcom-adreno-cl
+        package_names.sort(reverse=True, key=lambda x: len(x))
+
+        for package_name in package_names:
+            output_dir = os.path.join(self.DEB_OUT_DIR, oss_or_prop, package_name)
+            create_new_directory(output_dir, delete_if_exists=False)
+
+            logger.debug(f"Re-organizing outputs of package: {package_name} (oss/prop: {oss_or_prop})")
+
+            deb_package = next((file for file in deb_files if package_name in file), None)
+            dev_package = next((file for file in dev_files if package_name in file), None)
+            dbg_package = next((file for file in dbg_files if package_name in file), None)
+
+            if deb_package is not None:
+                shutil.copy(os.path.join(repo_build_tmp_dir, deb_package), os.path.join(output_dir, deb_package))
+                logger.info(f'Copied {deb_package} to {output_dir}')
+                deb_files.remove(deb_package)
+            else:
+                logger.debug(f"No .deb package found for {package_name}")
+
+            if dev_package is not None:
+                shutil.copy(os.path.join(repo_build_tmp_dir, dev_package), os.path.join(output_dir, dev_package))
+                logger.info(f'Copied {dev_package} to {output_dir}')
+                dev_files.remove(dev_package)
+            else:
+                logger.debug(f"No -dev.deb package found for {package_name}")
+
+            if dbg_package is not None:
+                shutil.copy(os.path.join(repo_build_tmp_dir, dbg_package), os.path.join(output_dir, dbg_package))
+                logger.info(f'Copied {dbg_package} to {output_dir}')
+                dbg_files.remove(dbg_package)
+            else:
+                logger.debug(f"No -dbgsym.ddeb package found for {package_name}")
+
+            # Deal with the .dsc file
+            dsc_package = next((f for f in os.listdir(repo_parent_path) if f.endswith('.dsc') and package_name in f), None)
+
+            if dsc_package is not None:
+                shutil.move(os.path.join(repo_parent_path, dsc_package), os.path.join(output_dir, dsc_package))
+                logger.info(f'Moved {dsc_package} to {output_dir}')
+            else:
+                logger.debug(f"No .dsc file found for {package_name}")
 
     def build_package(self, package):
         """
@@ -354,8 +390,7 @@ class PackageBuilder:
             print_build_logs(package_temp_dir)
             raise PackageBuildError(f"Failed to build {packages}: {e}")
 
-        self.reorganize_dsc_in_oss_prop(repo_path)
-        self.reorganize_deb_in_oss_prop(repo_path, package_temp_dir)
+        self.reorganize_outputs_in_oss_prop(repo_path, package_temp_dir)
 
         logger.info(f"{packages} built successfully!")
 
