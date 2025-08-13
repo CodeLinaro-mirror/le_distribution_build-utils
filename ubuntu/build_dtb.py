@@ -52,7 +52,7 @@ def build_dtb(deb_dir, deb_file_regex, combined_dtb_filename, out_dir):
     deb_file = files[0] # Assuming only one file matches the regex
     try:
         temp_dir = tempfile.mkdtemp()
-        logger.info(f'Temp path for dtb extraction: {temp_dir}')
+        logger.debug(f'Temp path for dtb extraction: {temp_dir}')
         subprocess.run(["dpkg-deb", '-x', deb_file, temp_dir], check=True)
     except Exception as e:
         logger.error(f"Error extracting .deb file: {e}")

@@ -224,6 +224,8 @@ except Exception as e:
 if IF_BUILD_KERNEL:
     error_during_kernel_build = False
 
+    logger.info("Running the kernel build phase")
+
     try:
         os.chdir(WORKSPACE_DIR)
         build_kernel(KERNEL_DIR)
@@ -243,6 +245,8 @@ if IF_BUILD_KERNEL:
 
 if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
     error_during_packages_build = False
+
+    logger.info("Running the debian packages generation phase")
 
     try:
         DEB_OUT_DIR_APT = None
@@ -288,6 +292,8 @@ if NO_ABI_CHECK:
 else:
     error_during_abi_check = False
 
+    logger.info("Running the ABI checking phase")
+
     try:
         if not APT_SERVER_CONFIG:
             raise Exception("No apt server config provided")
@@ -318,9 +324,14 @@ if IF_PACK_IMAGE:
     error_during_image_packing = False
     packer = None
 
+    logger.info("Running the image packing phase")
+
     # Define mount directory
     MOUNT_DIR = args.mount_dir
     OUT_SYSTEM_IMG = args.output_image_file
+
+    logger.debug(f"mount dir {MOUNT_DIR}")
+    logger.debug(f"out system img {OUT_SYSTEM_IMG}")
 
     try:
         cleanup_file(OUT_SYSTEM_IMG)
@@ -329,10 +340,13 @@ if IF_PACK_IMAGE:
 
         files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
         if len(files_check) == 0:
-            logger.warning(f"Warning: No files matching {LINUX_MODULES_DEB} exist.pulling it from pkg.qualcomm.com")
+            logger.warning(f"No files matching {LINUX_MODULES_DEB} exist in {KERNEL_DEB_OUT_DIR}. Pulling it from pkg.qualcomm.com")
             cur_file = os.path.dirname(os.path.realpath(__file__))
             manifest_file_path = os.path.join(cur_file, "packages", "base", f"{IMAGE_TYPE}.manifest")
             pull_debs_wget(manifest_file_path, KERNEL_DEB_OUT_DIR,KERNEL_DEBS,KERNEL_DEB_URL)
+        else:
+            logger.info("Linux modules found locally. Skipping pull from pkg.qualcomm.com")
+
         build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
 
         packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH)
