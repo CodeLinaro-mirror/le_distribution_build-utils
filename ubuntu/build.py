@@ -289,6 +289,8 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
 
 if NO_ABI_CHECK:
     logger.warning("ABI check is explicitely disabled. Skipping ABI check.")
+elif (not IF_GEN_DEBIANS and not IS_PREPARE_SOURCE):
+    logger.debug("Skipping ABI check since no debian packages generated")
 else:
     error_during_abi_check = False
 
