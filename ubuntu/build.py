@@ -334,8 +334,14 @@ if IF_PACK_IMAGE:
     logger.debug(f"out system img {OUT_SYSTEM_IMG}")
 
     try:
-        cleanup_file(OUT_SYSTEM_IMG)
-        umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=True)
+        if os.path.isfile(OUT_SYSTEM_IMG):
+            cleanup_file(OUT_SYSTEM_IMG)
+
+        if os.path.exists(MOUNT_DIR):
+            # Make sure no leftovers from a previous run are present, especially in terms of mouted directories.
+            umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=True)
+            cleanup_directory(MOUNT_DIR)
+
         create_new_directory(MOUNT_DIR)
 
         files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
@@ -359,9 +365,10 @@ if IF_PACK_IMAGE:
         traceback.print_exc()
 
         print_build_logs(DEB_OUT_TEMP_DIR)
-        umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=True)
 
     finally:
+        umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=True)
+
         if IS_CLEANUP_ENABLED:
             cleanup_directory(MOUNT_DIR)
         if error_during_image_packing:
