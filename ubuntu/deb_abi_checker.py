@@ -59,12 +59,14 @@ class ABI_DIFF_Result:
         self.abi_pkg_diff_remark = None
         self.abi_pkg_diff_output = None
 
-def print_results(checker_results, output_result_file=None):
+# package_name - result
+global_checker_results: dict[str, ABI_DIFF_Result] = {}
+
+def print_results(log_file=None):
 
     log = "ABI Check results\n"
 
-
-    for package_name, result in checker_results.items():
+    for package_name, result in global_checker_results.items():
         log += f"Package Name:     {package_name}\n"
         log += f"Repository Name:  {result.repo_name}\n"
         log += f"New Package:\n"
@@ -89,8 +91,8 @@ def print_results(checker_results, output_result_file=None):
 
         log += ("-" * 100 + "\n")
 
-    if output_result_file is not None:
-        with open(output_result_file, 'w') as f:
+    if log_file is not None:
+        with open(log_file, 'w') as f:
             f.write(log)
 
     print(log)
@@ -123,16 +125,15 @@ def main():
 
     print_debug_tree = True
 
-    checker_results: dict[str, ABI_DIFF_Result] = {}
 
-    passed = single_repo_deb_abi_checker(checker_results,
-                                         args.new_package_dir,
+
+    passed = single_repo_deb_abi_checker(args.new_package_dir,
                                          args.apt_server_config,
                                          True if args.delete_temp is False else False,
                                          None if not args.old_version else args.old_version,
                                          print_debug_tree=print_debug_tree)
 
-    print_results(checker_results, None)
+    print_results(None)
 
     sys.exit(0 if passed else 1)
 
@@ -168,14 +169,12 @@ def multiple_repo_deb_abi_checker(package_dir, apt_server_config, keep_temp=True
 
     all_repos_successful = True
 
-    checker_results: dict[str, ABI_DIFF_Result] = {}
-
     for folder in os.listdir(package_dir):
         folder_path = os.path.join(package_dir, folder)
         if os.path.isdir(folder_path):
 
             try:
-                success = single_repo_deb_abi_checker(checker_results, folder_path, apt_server_config, keep_temp, specific_apt_version)
+                success = single_repo_deb_abi_checker(folder_path, apt_server_config, keep_temp, specific_apt_version)
             except Exception as e:
                 logger.critical(f"Function single_repo_deb_abi_checker threw an exception: {e}")
                 success = False
@@ -188,11 +187,11 @@ def multiple_repo_deb_abi_checker(package_dir, apt_server_config, keep_temp=True
 
     log_file = os.path.join(package_dir, "abi_checker.log")
 
-    print_results(checker_results, log_file)
+    print_results(log_file)
 
     return all_repos_successful
 
-def single_repo_deb_abi_checker(results: dict[str, ABI_DIFF_Result], repo_package_dir, apt_server_config, keep_temp=True, specific_apt_version=None, print_debug_tree=False):
+def single_repo_deb_abi_checker(repo_package_dir, apt_server_config, keep_temp=True, specific_apt_version=None, print_debug_tree=False):
     """
     Runs the ABI check for all the packages in a single repo output directory
 
@@ -277,12 +276,11 @@ def single_repo_deb_abi_checker(results: dict[str, ABI_DIFF_Result], repo_packag
         package_abi_check_temp_dir = os.path.join(abi_check_temp_dir, package_name)
         create_new_directory(package_abi_check_temp_dir)
 
-        results[package_name] = ABI_DIFF_Result(package_name)
-        results[package_name].repo_name = basedir
+        global_checker_results[package_name] = ABI_DIFF_Result(package_name)
+        global_checker_results[package_name].repo_name = basedir
 
         # Run the single_package_abi_checker function for the package
-        passing = single_package_abi_checker(results[package_name],
-                                             repo_package_dir=repo_package_dir,
+        passing = single_package_abi_checker(repo_package_dir=repo_package_dir,
                                              package_abi_check_temp_dir=package_abi_check_temp_dir,
                                              package_name=package_name,
                                              package_file=deb_file,
@@ -296,8 +294,7 @@ def single_repo_deb_abi_checker(results: dict[str, ABI_DIFF_Result], repo_packag
 
     return all_packages_passing
 
-def single_package_abi_checker(result: ABI_DIFF_Result,
-                               repo_package_dir,
+def single_package_abi_checker(repo_package_dir,
                                package_abi_check_temp_dir,
                                package_name,
                                package_file,
@@ -308,6 +305,8 @@ def single_package_abi_checker(result: ABI_DIFF_Result,
     """
     Runs the ABI check in a folder containing a single package.
     """
+
+    result = global_checker_results[package_name]
 
     logger.debug(f"[ABI_CHECKER]/{package_name}: running single_package_abi_checker")
 
@@ -326,8 +325,12 @@ def single_package_abi_checker(result: ABI_DIFF_Result,
     result.new_deb_version = new_version
 
     # -dev.deb package is optional, but if it exists, we need to extract it too
+    # The package name may contain the major version number at the end, but by canonical convention, dev packages shall not contain that
+    # major version, so deal with this to make sure the dev package not containing it is found
+    package_name_without_major = (package_name[:-1] if package_name[-1].isdigit() else package_name)
 
-    deb_dev_files = [f for f in os.listdir(repo_package_dir) if f.endswith('.deb') and f"{package_name}-dev" in f]
+
+    deb_dev_files = [f for f in os.listdir(repo_package_dir) if f.endswith('.deb') and package_name_without_major in f and "-dev" in f]
 
     if not deb_dev_files:
         logger.warning(f"[ABI_CHECKER]/{package_name}: No -dev.deb package found")
@@ -337,9 +340,13 @@ def single_package_abi_checker(result: ABI_DIFF_Result,
         new_dev_path = os.path.join(repo_package_dir, deb_dev_files[0])
         result.new_dev_name = deb_dev_files[0]
     else:
-        logger.critical(f"[ABI_CHECKER]/{package_name}: Multiple -dev.deb files found")
-        result.new_deb_name = "ERROR : multiple detected"
-        return False
+        deb_dev_file = [f for f in deb_dev_files if f"{package_name_without_major}-dev" in f]
+        if len(deb_dev_file) > 1:
+            logger.critical(f"[ABI_CHECKER]/{package_name}: Multiple -dev.deb files found")
+            result.new_dev_name = "ERROR : multiple detected"
+            return False
+        new_dev_path = os.path.join(repo_package_dir, deb_dev_file[0])
+        result.new_dev_name = deb_dev_file[0]
 
     # -dbgsym.ddeb package is optional, but if it exists, we need to extract it too
 
@@ -547,7 +554,7 @@ def single_package_abi_checker(result: ABI_DIFF_Result,
         logger.warning(msg.format(package_name=package_name, pkg="-dbgsym.ddeb", version="new"))
     if old_ddeb_path is None or new_ddeb_path is None:
         if result.abi_pkg_diff_remark is not None:
-            result.abi_pkg_diff_remark += ", "
+            result.abi_pkg_diff_remark += ", NO-DBG-PACKAGE"
         else:
             result.abi_pkg_diff_remark = "NO-DBG-PACKAGE"
 
