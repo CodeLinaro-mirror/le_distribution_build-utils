@@ -273,6 +273,9 @@ def umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=False):
     """
     Unmounts a specified directory and optionally unmounts host filesystem mounts.
 
+    If the directory is not mounted, (ie, return code 32 from umount) then it is
+    silently ignored.
+
     Args:
     -----
     - MOUNT_DIR (str): The directory to unmount.
@@ -283,14 +286,16 @@ def umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=False):
 
     if UMOUNT_HOST_FS:
         for direc in HOST_FS_MOUNT:
-            try:
-                run_command(f"umount -l {MOUNT_DIR}/{direc}")
-            except:
-                logger.warning(f"Failed to unmount {MOUNT_DIR}/{direc}. Not mounted or busy. Ignoring.")
-    try:
-        run_command(f"umount -l {MOUNT_DIR}")
-    except:
-        logger.warning(f"Failed to unmount {MOUNT_DIR}. Not mounted or busy. Ignoring.")
+            result = subprocess.run(f"umount -l {MOUNT_DIR}/{direc}",
+                                    shell=True, capture_output=True, text=True)
+
+            if result.returncode != 0 and result.returncode != 32:
+                logger.error(f"Failed to unmount {MOUNT_DIR}/{direc}: {result.stderr}")
+
+    result = subprocess.run(f"umount -l {MOUNT_DIR}",
+                            shell=True, capture_output=True, text=True)
+    if result.returncode != 0 and result.returncode != 32:
+        logger.error(f"Failed to unmount {MOUNT_DIR}: {result.stderr}")
 
 def change_folder_perm_read_write(DIR):
     """
@@ -492,7 +497,7 @@ def pull_debs_wget(manifest_file_path, out_dir,DEBS_to_download_list,base_url):
                 output_path = os.path.join(out_dir,name,deb_name)
                 create_new_directory(os.path.join(out_dir,name))
                 # Construct wget command
-                wget_cmd = ["wget", url, "-O", output_path]
+                wget_cmd = ["wget", "--no-check-certificate", url, "-O", output_path]
                 try:
                     logger.info(f"Downloading {url}...")
                     subprocess.run(wget_cmd, check=True)
