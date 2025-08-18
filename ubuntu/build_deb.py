@@ -33,7 +33,7 @@ class PackageBuildError(Exception):
 
 class PackageBuilder:
     def __init__(self, CHROOT_NAME, CHROOT_DIR, SOURCE_DIR, APT_SERVER_CONFIG, \
-    MANIFEST_MAP=None, DEB_OUT_TEMP_DIR=None, DEB_OUT_DIR=None, DEB_OUT_DIR_APT=None, DEBIAN_INSTALL_DIR=None, \
+    MANIFEST_MAP=None, DEB_OUT_TEMP_DIR=None, DEB_OUT_DIR=None, DEB_OUT_DIR_APT=None, \
     DEBIAN_INSTALL_DIR_APT=None, IS_CLEANUP_ENABLED=True, IS_PREPARE_SOURCE=False, DIST= "noble", ARCH="arm64", CHROOT_SUFFIX="ubuntu"):
         """
         Initializes the PackageBuilder instance.
@@ -48,7 +48,6 @@ class PackageBuilder:
         - DEB_OUT_TEMP_DIR (str, optional): Temporary directory for building packages.
         - DEB_OUT_DIR (str, optional): Output directory for built Debian packages.
         - DEB_OUT_DIR_APT (str, optional): Output directory for APT repository.
-        - DEBIAN_INSTALL_DIR (str, optional): Directory for Debian installation files.
         - DEBIAN_INSTALL_DIR_APT (str, optional): Directory for APT installation files.
         - IS_CLEANUP_ENABLED (bool, optional): Flag to enable cleanup of the mount directory.
         - IS_PREPARE_SOURCE (bool, optional): If True, prepares the source directory before building. Defaults to False.
@@ -81,7 +80,6 @@ class PackageBuilder:
         self.IS_CLEANUP_ENABLED = IS_CLEANUP_ENABLED
 
         self.DEB_OUT_DIR = DEB_OUT_DIR
-        self.DEBIAN_INSTALL_DIR = DEBIAN_INSTALL_DIR
         self.DEB_OUT_DIR_APT = DEB_OUT_DIR_APT
         self.DEBIAN_INSTALL_DIR_APT = DEBIAN_INSTALL_DIR_APT
         self.IS_PREPARE_SOURCE = IS_PREPARE_SOURCE

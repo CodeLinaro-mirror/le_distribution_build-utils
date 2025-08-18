@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 build.py
 
@@ -27,7 +29,7 @@ from build_dtb import build_dtb
 from build_deb import PackageBuilder, PackageNotFoundError, PackageBuildError
 from constants import *
 from datetime import date
-from helpers import create_new_directory, umount_dir, check_if_root, check_and_append_line_in_file, cleanup_file, cleanup_directory, change_folder_perm_read_write, print_build_logs, start_local_apt_server, build_deb_package_gz, mount_img, pull_debs_wget
+from helpers import create_new_directory, umount_dir, check_if_root, check_and_append_line_in_file, cleanup_file, cleanup_directory, change_folder_perm_read_write, print_build_logs, start_local_apt_server, build_deb_package_gz, pull_debs_wget
 from deb_organize import generate_manifest_map
 from pack_deb import PackagePacker
 from flat_meta import create_flat_meta
@@ -64,19 +66,23 @@ def parse_arguments():
                         default="deb [arch=arm64 trusted=yes] http://pkg.qualcomm.com noble/stable main",
                         help='APT Server configuration to use')
     parser.add_argument('--mount_dir', type=str, required=False,
-                        help='Mount directory for builds (default: <workspace>/build)')
-    parser.add_argument('--workspace', type=str, required=True,
-                        help='Workspace directory (mandatory)')
+                        help='Mount directory for builds (default: <workspace>/build/mount)',
+                        default="build/mount")
+    parser.add_argument('--workspace', type=str, required=False,
+                        default=".",
+                        help='Workspace directory, defaults to pwd')
     parser.add_argument('--build-kernel', action='store_true', default=False,
                         help='Build kernel')
     parser.add_argument('--kernel-src-dir', type=str, required=False,
-                        help='Kernel directory (default: <workspace>/kernel)')
+                        help='Kernel directory (default: <workspace>/kernel)',
+                        default="kernel")
     parser.add_argument('--kernel-dest-dir', type=str, required=False,
                         help='Kernel out directory (default: <workspace>/debian_packages/oss)')
     parser.add_argument('--kernel-deb-path', type=str, required=False,
                         help='directory with built kernel debians (default: <workspace>/debian_packages/oss)')
     parser.add_argument('--kernel-deb-url', type=str, required=False,
-                        help='directory with built kernel debians', default="https://pkg.qualcomm.com/pool/stable/main")
+                        help='directory with built kernel debians',
+                        default="https://pkg.qualcomm.com/pool/stable/main")
     parser.add_argument('--flavor', type=str, choices=['server', 'desktop'], default='server',
                         help='Image flavor (only server or desktop, default: server)')
     parser.add_argument('--debians-path', type=str, required=False,
@@ -90,7 +96,8 @@ def parse_arguments():
     parser.add_argument('--packages-manifest-path', type=str, required=False,
                         help='Absolute path to the package manifest file')
     parser.add_argument('--output-image-file', type=str, required=False,
-                        help='Path for output system.img (default: <workspace>/out/system.img)')
+                        help='Output file name in <workspace>/out/system.img',
+                        default="out/system.img")
     parser.add_argument('--package', type=str, required=False,
                         help='Package to build')
     parser.add_argument("--nocleanup", action="store_true",
@@ -111,13 +118,31 @@ def parse_arguments():
 
     args = parser.parse_args()
 
+    # Make workspace absolute path. If no value was passed, resolve the '.' default value to the current pwd
+    if not os.path.isabs(args.workspace):
+        args.workspace = os.path.abspath(args.workspace)
+
+    # If not overriden with an absolute path, resolve the relative path to the workspace : <workspace>/out/system.img
+    if not os.path.isabs(args.output_image_file):
+        args.output_image_file = os.path.join(args.workspace, args.output_image_file)
+
+    # If not overriden with an absolute path, resolve the repative path to the workspace : <workspace>/build/mount
+    if not os.path.isabs(args.mount_dir):
+        args.mount_dir = os.path.join(args.workspace, args.mount_dir)
+
+    # If not overriden with an absolute path, resolve the repative path to the workspace : <workspace>/kernel
+    if not os.path.isabs(args.kernel_src_dir):
+        args.kernel_src_dir = os.path.join(args.workspace, args.kernel_src_dir)
+
+    if 'lnxbuild' in args.workspace:
+        logger.disable_color()
+        logger.info("the string 'lnxbuild' was detected in the workspace path, which indicates a CI build. Turning off the color encoding for the logging to avoid polluting the log with special characters")
+
     # Absolute path checks
     for path_arg, path_value in {
-        '--workspace': args.workspace,
         '--kernel-dest-dir': args.kernel_dest_dir,
         '--kernel-deb-path' : args.kernel_deb_path ,
         '--debians-path': args.debians_path,
-        '--output-image-file': args.output_image_file,
         '--packages-manifest-path': args.packages_manifest_path,
     }.items():
         if path_value and not os.path.isabs(path_value):
@@ -132,10 +157,6 @@ def parse_arguments():
     if args.chroot_name:
         logger.warning("The argument --chroot-name is not used anymore. Take it out to silence this warning.")
 
-    if 'lnxbuild' in args.workspace:
-        logger.disable_color()
-        logger.info("the string 'lnxbuild' was detected in the workspace path, which indicates a CI build. Turning off the color encoding for the logging to avoid polluting the log with special characters")
-
     return args
 
 # Parse command-line arguments
@@ -146,7 +167,6 @@ WORKSPACE_DIR = args.workspace
 IMAGE_TYPE = args.flavor
 PACKAGES_MANIFEST_PATH = args.packages_manifest_path
 
-OUT_SYSTEM_IMG = args.output_image_file
 BUILD_PACKAGE_NAME = args.package
 DEBIAN_INSTALL_DIR = args.debians_path
 
@@ -163,11 +183,8 @@ PACK_VARIANT = args.pack_variant
 TARGET_HW = args.flat_meta
 NO_ABI_CHECK = args.no_abi_check
 
-# Define mount directory
-MOUNT_DIR = args.mount_dir if args.mount_dir else os.path.join(WORKSPACE_DIR, "build/mount")
-
 # Define kernel and output directories
-KERNEL_DIR = args.kernel_src_dir if args.kernel_src_dir else os.path.join(WORKSPACE_DIR, "kernel")
+KERNEL_DIR = args.kernel_src_dir
 KERNEL_DEB_URL = args.kernel_deb_url
 SOURCES_DIR = os.path.join(WORKSPACE_DIR, "sources")
 OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
@@ -188,8 +205,6 @@ APT_SERVER_CONFIG = [config.strip() for config in args.apt_server_config.split('
 APT_SERVER_CONFIG = list(set(APT_SERVER_CONFIG)) if APT_SERVER_CONFIG else None
 
 # Create necessary directories for the build process
-create_new_directory(WORKSPACE_DIR, delete_if_exists=False)
-create_new_directory(MOUNT_DIR, delete_if_exists=False)
 create_new_directory(KERNEL_DIR, delete_if_exists=False)
 create_new_directory(KERNEL_DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(SOURCES_DIR, delete_if_exists=False)
@@ -208,6 +223,8 @@ except Exception as e:
 # Build the kernel if specified
 if IF_BUILD_KERNEL:
     error_during_kernel_build = False
+
+    logger.info("Running the kernel build phase")
 
     try:
         os.chdir(WORKSPACE_DIR)
@@ -229,6 +246,8 @@ if IF_BUILD_KERNEL:
 if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
     error_during_packages_build = False
 
+    logger.info("Running the debian packages generation phase")
+
     try:
         DEB_OUT_DIR_APT = None
         DEBIAN_INSTALL_DIR_APT = None
@@ -239,7 +258,7 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             DEBIAN_INSTALL_DIR_APT = build_deb_package_gz(DEBIAN_INSTALL_DIR, start_server=True)
 
         # Initialize the PackageBuilder to load packages
-        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIR, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE)
+        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIR, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE)
         builder.load_packages()
 
         # Build a specific package if provided, otherwise build all packages
@@ -273,6 +292,8 @@ if NO_ABI_CHECK:
 else:
     error_during_abi_check = False
 
+    logger.info("Running the ABI checking phase")
+
     try:
         if not APT_SERVER_CONFIG:
             raise Exception("No apt server config provided")
@@ -303,8 +324,14 @@ if IF_PACK_IMAGE:
     error_during_image_packing = False
     packer = None
 
-    if OUT_SYSTEM_IMG is None:
-        OUT_SYSTEM_IMG = os.path.join(OUT_DIR, IMAGE_NAME)
+    logger.info("Running the image packing phase")
+
+    # Define mount directory
+    MOUNT_DIR = args.mount_dir
+    OUT_SYSTEM_IMG = args.output_image_file
+
+    logger.debug(f"mount dir {MOUNT_DIR}")
+    logger.debug(f"out system img {OUT_SYSTEM_IMG}")
 
     try:
         cleanup_file(OUT_SYSTEM_IMG)
@@ -313,10 +340,13 @@ if IF_PACK_IMAGE:
 
         files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
         if len(files_check) == 0:
-            logger.warning(f"Warning: No files matching {LINUX_MODULES_DEB} exist.pulling it from pkg.qualcomm.com")
+            logger.warning(f"No files matching {LINUX_MODULES_DEB} exist in {KERNEL_DEB_OUT_DIR}. Pulling it from pkg.qualcomm.com")
             cur_file = os.path.dirname(os.path.realpath(__file__))
             manifest_file_path = os.path.join(cur_file, "packages", "base", f"{IMAGE_TYPE}.manifest")
             pull_debs_wget(manifest_file_path, KERNEL_DEB_OUT_DIR,KERNEL_DEBS,KERNEL_DEB_URL)
+        else:
+            logger.info("Linux modules found locally. Skipping pull from pkg.qualcomm.com")
+
         build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
 
         packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH)

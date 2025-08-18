@@ -116,13 +116,12 @@ def run_command(command, check=True, get_object=False, cwd=None):
         logger.error(f"stdout: {e.stdout.strip()}")
         raise Exception(e)
 
-    if result.stderr:
-        stderr_output = result.stderr.strip()
-        if stderr_output:
-            if result.returncode == 0:
-                logger.warning(f"Stderr: {stderr_output}")
-            else:
-                logger.error(f"Error: {stderr_output}")
+    stderr = result.stderr.strip()
+    if stderr:
+        if result.returncode == 0:
+            logger.debug(f"Successful return value, yet there is content in stderr: {stderr}")
+        else:
+            logger.error(f"Error: {stderr}")
 
     return result.stdout.strip()
 
@@ -141,7 +140,7 @@ def run_command_for_result(command):
         - "returncode" (int): The return code of the command.
     """
     command = command.strip()
-    logger.info(f'Running for result: {command}')
+    logger.debug(f'Running for result: {command}')
     try:
         result = subprocess.check_output(command, shell=True, stderr=subprocess.sys.stdout)
         return {"output": result.decode("utf-8").strip(), "returncode": 0}
@@ -279,6 +278,9 @@ def umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=False):
     - MOUNT_DIR (str): The directory to unmount.
     - UMOUNT_HOST_FS (bool): If True, unmounts the host filesystem directories.
     """
+
+    logger.debug(f"umount dir {MOUNT_DIR}")
+
     if UMOUNT_HOST_FS:
         for direc in HOST_FS_MOUNT:
             try:

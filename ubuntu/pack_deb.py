@@ -120,13 +120,13 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
         base_path = os.path.join(self.cur_file, "packages", "base", f"{self.IMAGE_TYPE}.manifest")
         if os.path.isfile(base_path):
             self.BASE_MANIFEST = base_path
-            logger.info(f"Using base manifest: {self.BASE_MANIFEST}")
+            logger.debug(f"Using base manifest: {self.BASE_MANIFEST}")
             self.DEBS = parse_debs_manifest(self.BASE_MANIFEST)
             # Also include qcom manifest if variant == qcom
             if self.VARIANT == "qcom":
                 qcom_path = os.path.join(self.cur_file, "packages", "qcom", f"{self.IMAGE_TYPE}.manifest")
                 self.QCOM_MANIFEST = qcom_path
-                logger.info(f"Using QCOM manifest: {self.QCOM_MANIFEST}")
+                logger.debug(f"Using QCOM manifest: {self.QCOM_MANIFEST}")
                 self.DEBS.extend(parse_debs_manifest(self.QCOM_MANIFEST))
             return
         # 3. No manifest found: print message and exit
