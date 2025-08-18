@@ -280,8 +280,6 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             traceback.print_exc()
 
     finally:
-        if IS_CLEANUP_ENABLED:
-            cleanup_directory(MOUNT_DIR)
         if error_during_packages_build:
             logger.critical("Debian package generation error. Exiting.")
             exit(1)
