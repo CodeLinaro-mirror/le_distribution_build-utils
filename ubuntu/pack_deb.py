@@ -128,13 +128,8 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
                                     logger.info(f"Including manifest from: {file_path}")
                                     with open(file_path, 'r') as f:
                                         merged_file.write(f.read())
-                                        merged_file.write('\n')
                             except (IOError, OSError) as e:
                                 logger.warning(f"Failed to read manifest file {file_path}: {e}")
-                if os.path.getsize(merged_manifest_path) == 0:
-                    logger.info("No non-empty manifest files found. Removing empty merged file.")
-                    os.remove(merged_manifest_path)
-                    return None
 
                 return merged_manifest_path
         except (IOError, OSError) as e:
