@@ -92,6 +92,8 @@ def parse_arguments():
                         help='Generate Debian binary (default: False)')
     parser.add_argument('--pack-image', action='store_true', default=False,
                         help='Pack system.img with generated debians (default: False)')
+    parser.add_argument('--pack-image-rel', action='store_true', default=False,
+                        help='Pack system.img with generated debians (default: False)')
     parser.add_argument('--release-prep-url', type=str, required=False,
                         help='prepares workspace for release (default: False)',
                         )
@@ -177,7 +179,8 @@ DEBIAN_INSTALL_DIR = args.debians_path
 # Process Flags
 IF_BUILD_KERNEL = args.build_kernel
 IF_GEN_DEBIANS = args.gen_debians
-IF_PACK_IMAGE = args.pack_image
+IF_PACK_IMAGE = args.pack_image or args.pack_image_rel
+IF_RELEASE_ENABLED = args.pack_image_rel
 IF_RELEASE_PREP_URL = args.release_prep_url
 IF_FLAT_META = args.flat_meta
 IS_CLEANUP_ENABLED = not args.nocleanup
@@ -370,7 +373,7 @@ if IF_PACK_IMAGE:
             cleanup_directory(MOUNT_DIR)
 
         create_new_directory(MOUNT_DIR)
-        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH,QC_FOLDER)
+        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH,QC_FOLDER,IF_RELEASE_ENABLED)
         files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
         if len(files_check) == 0:
             logger.warning(f"No files matching {LINUX_MODULES_DEB} exist in {KERNEL_DEB_OUT_DIR}. Pulling it from pkg.qualcomm.com")
