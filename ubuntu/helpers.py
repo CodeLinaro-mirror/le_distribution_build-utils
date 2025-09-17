@@ -63,7 +63,6 @@ def check_and_append_line_in_file(file_path, line_to_check, append_if_missing=Fa
 
     return False
 
-
 def extract_vmlinux(deb_dir, deb_file_regex, vmlinux_filename, out_dir):
     """
     Extracts the vmlinux file from a Debian package and places it in the output directory.
