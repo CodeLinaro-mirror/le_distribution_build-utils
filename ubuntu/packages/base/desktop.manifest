@@ -189,7 +189,6 @@ gir1.2-gnomebluetooth-3.0	46.0-1ubuntu1
 gir1.2-gnomedesktop-3.0	44.0-5build2
 gir1.2-gnomedesktop-4.0	44.0-5build2
 gir1.2-graphene-1.0	1.10.8-3build2
-gir1.2-gstreamer-1.0	1.24.2-qc3~1ubuntu0.1
 gir1.2-gtk-3.0	3.24.41-4ubuntu1.3
 gir1.2-gtk-4.0	4.14.5+ds-0ubuntu0.5
 gir1.2-gweather-4.0	4.4.2-1build1
@@ -402,7 +401,7 @@ libbytesize1	2.10-1ubuntu2
 libbz2-1.0	1.0.8-5.1
 libc-bin	2.39-0ubuntu8.6
 libc6	2.39-0ubuntu8.6
-libc6-dbg	2.39-0ubuntu8.5
+libc6-dbg	2.39-0ubuntu8.6
 libcaca0	0.99.beta20-4build2
 libcairo-gobject-perl	1.005-4build3
 libcairo-gobject2	1.18.0-3build1
