@@ -205,6 +205,8 @@ KERNEL_DEB_OUT_DIR = (
     else args.kernel_deb_path if args.kernel_deb_path
     else OSS_DEB_OUT_DIR
 )
+VMLINUXPATH = KERNEL_DEB_OUT_DIR +"/"+ LINUX_IMAGE_DBGSYM_DEB
+
 PROP_DEB_OUT_DIR = os.path.join(DEB_OUT_DIR, "prop")
 DEB_OUT_TEMP_DIR = os.path.join(DEB_OUT_DIR, "temp")
 
@@ -241,7 +243,7 @@ if IF_BUILD_KERNEL:
 
         build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
         logger.info("Building vmlinux as requested")
-        extract_vmlinux(DEB_OUT_DIR, LINUX_IMAGE_DBGSYM_DEB, VMLINUX_QCOM_FILE, OUT_DIR)
+        extract_vmlinux(DEB_OUT_DIR, VMLINUXPATH, VMLINUX_QCOM_FILE, OUT_DIR)
 
     except Exception as e:
         logger.critical(f"Exception during kernel build : {e}")
@@ -388,7 +390,7 @@ if IF_PACK_IMAGE:
         build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
         if not IF_BUILD_KERNEL: #this is needed when user runs both build kernel and pack image extravtion dhouldnt run twice
             logger.info("Building vmlinux as requested")
-            extract_vmlinux(DEB_OUT_DIR, LINUX_IMAGE_DBGSYM_DEB, VMLINUX_QCOM_FILE, OUT_DIR)
+            extract_vmlinux(DEB_OUT_DIR, VMLINUXPATH, VMLINUX_QCOM_FILE, OUT_DIR)
 
         packer.build_image()
 
