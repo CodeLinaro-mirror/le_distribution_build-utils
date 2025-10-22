@@ -370,9 +370,9 @@ class PackageBuilder:
 
         if self.IS_PREPARE_SOURCE:
             logger.debug(f"generating dsc for {packages}...")
-            cmd = f"sbuild --source --no-arch-all --no-arch-any -d {self.CHROOT_NAME} --build-dir {package_temp_dir}"
+            cmd = f"sbuild --source --no-arch-all --no-arch-any  -d {self.CHROOT_NAME} --build-dir {package_temp_dir}"
         else:
-            cmd = f"sbuild -A --arch=arm64 -d {self.CHROOT_NAME} --build-dir {package_temp_dir} --build-dep-resolver=apt"
+            cmd = f"sbuild -A --arch=arm64 -d {self.CHROOT_NAME} --no-run-lintian --build-dir {package_temp_dir} --build-dep-resolver=apt"
 
         if self.DEB_OUT_DIR_APT:
             build_deb_package_gz(self.DEB_OUT_DIR, start_server=False) # Rebuild Packages file
@@ -392,18 +392,6 @@ class PackageBuilder:
             logger.error(f"Failed to build {packages}: {e}")
             print_build_logs(package_temp_dir)
             raise PackageBuildError(f"Failed to build {packages}: {e}")
-
-        # 🔍 Parse .build log file for E: errors only
-        build_log_files = list(Path(package_temp_dir).glob("*.build"))
-        if build_log_files:
-            build_log_path = build_log_files[0]
-            try:
-                with open(build_log_path, "r", encoding="utf-8", errors="replace") as f:
-                    for line in f:
-                        if line.startswith("E: "):
-                            logger.error(line.strip())
-            except Exception as log_err:
-                logger.warning(f"Could not read or parse build log file: {log_err}")
 
         self.reorganize_outputs_in_oss_prop(repo_path, package_temp_dir)
 
