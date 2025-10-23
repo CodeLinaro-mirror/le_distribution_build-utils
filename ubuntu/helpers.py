@@ -17,7 +17,7 @@ import glob
 from pathlib import Path
 from git import Repo
 from apt_server import AptServer
-from constants import TERMINAL, HOST_FS_MOUNT
+from constants import TERMINAL, HOST_FS_MOUNT, LINUX_MODULES_DEB
 from color_logger import logger
 import tempfile
 
@@ -572,9 +572,10 @@ def pull_debs_wget(manifest_file_path, out_dir,DEBS_to_download_list,base_url):
             if name.startswith(module):
                 first_letter = name[0]
                 deb_name = f"{name}_{version}_arm64.deb"
-                url = f"{base_url}/{first_letter}/{name}/{deb_name}"
-                output_path = os.path.join(out_dir,name,deb_name)
-                create_new_directory(os.path.join(out_dir,name))
+                #url = f"{base_url}/{first_letter}/{name}/{deb_name}"
+                url = f"{base_url}/{first_letter}/{LINUX_MODULES_DEB.split('/')[0]}/{deb_name}"
+                output_path = os.path.join(out_dir, LINUX_MODULES_DEB.split('/')[0],deb_name )
+                create_new_directory(os.path.join(out_dir,LINUX_MODULES_DEB.split('/')[0]), delete_if_exists=False)
                 # Construct wget command
                 wget_cmd = ["wget", "--no-check-certificate", url, "-O", output_path]
                 try:
@@ -583,6 +584,6 @@ def pull_debs_wget(manifest_file_path, out_dir,DEBS_to_download_list,base_url):
                     logger.info(f"Saved to {output_path}")
                 except subprocess.CalledProcessError as e:
                     logger.error(f"error: Failed to download {url}: {e}")
-                break  # Stop after first match
+                # break # Stop after first match
 
 
