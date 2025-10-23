@@ -220,7 +220,7 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
         log_file = os.path.join(self.TEMP_DIR, f"mmdebstrap_{self.IMAGE_TYPE}_{self.VARIANT}.mmdebstrap.build")
 
         bash_command = f"""
-sudo mmdebstrap --verbose --logfile={log_file} \
+sudo mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='echo root:password | chroot "$1" chpasswd' \
 --customize-hook='cp {self.cur_file}/01-end0.yaml "$1/etc/netplan/01-end0.yaml"' \
 --customize-hook='echo "PermitRootLogin yes" >> "$1/etc/ssh/sshd_config"' \
