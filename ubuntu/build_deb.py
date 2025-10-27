@@ -299,12 +299,9 @@ class PackageBuilder:
 
             logger.debug(f"Re-organizing outputs of package: {package_name} (oss/prop: {oss_or_prop})")
 
-            deb_package = next((file for file in deb_files if file.split('_')[0] == package_name or 
-                   file.split('_')[0].startswith(f"{package_name}-")), None)
-            dev_package = next((file for file in dev_files if file.split('_')[0] == package_name or 
-                   file.split('_')[0].startswith(f"{package_name}-")), None)
-            dbg_package = next((file for file in dbg_files if file.split('_')[0] == package_name or 
-                   file.split('_')[0].startswith(f"{package_name}-")), None)
+            deb_package = next((file for file in deb_files if package_name in file), None)
+            dev_package = next((file for file in dev_files if package_name in file), None)
+            dbg_package = next((file for file in dbg_files if package_name in file), None)
 
             if deb_package is not None:
                 shutil.copy(os.path.join(repo_build_tmp_dir, deb_package), os.path.join(output_dir, deb_package))
