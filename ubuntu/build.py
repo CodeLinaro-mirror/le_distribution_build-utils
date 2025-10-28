@@ -86,6 +86,8 @@ def parse_arguments():
                         default="https://pkg.qualcomm.com/pool/stable/main")
     parser.add_argument('--flavor', type=str, choices=['server', 'desktop'], default='server',
                         help='Image flavor (only server or desktop, default: server)')
+    parser.add_argument('--tech', type=str, choices=['ros', 'iot'], default=None,
+                        help='tech flavor (only ros or iot, default: None)')
     parser.add_argument('--debians-path', type=str, required=False,
                         help='Directory with debians to install')
     parser.add_argument('--gen-debians', action='store_true', default=False,
@@ -185,6 +187,8 @@ IF_RELEASE_PREP_URL = args.release_prep_url
 IF_FLAT_META = args.flat_meta
 IS_CLEANUP_ENABLED = not args.nocleanup
 IS_PREPARE_SOURCE = args.prepare_sources
+
+TECH_VARIANT = args.tech
 
 PACK_VARIANT = args.pack_variant
 
@@ -290,7 +294,7 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             DEBIAN_INSTALL_DIR_APT = build_deb_package_gz(DEBIAN_INSTALL_DIR, start_server=True)
 
         # Initialize the PackageBuilder to load packages
-        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIR, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE)
+        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIR, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE,TECH_VARIANT=TECH_VARIANT)
         builder.load_packages()
 
         # Build a specific package if provided, otherwise build all packages
@@ -375,7 +379,7 @@ if IF_PACK_IMAGE:
             cleanup_directory(MOUNT_DIR)
 
         create_new_directory(MOUNT_DIR)
-        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH,QC_FOLDER,IF_RELEASE_ENABLED)
+        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH,QC_FOLDER,IF_RELEASE_ENABLED,TECH_VARIANT=TECH_VARIANT)
         files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
         if len(files_check) == 0:
             logger.warning(f"No files matching {LINUX_MODULES_DEB} exist in {KERNEL_DEB_OUT_DIR}. Pulling it from pkg.qualcomm.com")

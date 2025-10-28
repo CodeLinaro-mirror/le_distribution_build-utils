@@ -22,7 +22,7 @@ from deb_organize import search_manifest_map_for_path
 from color_logger import logger
 
 class PackagePacker:
-    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH=None,QC_FOLDER=None,IF_RELEASE_ENABLED=False):
+    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED,PACKAGES_MANIFEST_PATH=None,QC_FOLDER=None,IF_RELEASE_ENABLED=False,TECH_VARIANT=None):
         """
         Initializes the PackagePacker instance.
 
@@ -58,6 +58,11 @@ class PackagePacker:
         self.PACKAGES_MANIFEST_PATH = PACKAGES_MANIFEST_PATH
         self.qc_folder = QC_FOLDER
         self.IS_RELEASE_ENABLED = IF_RELEASE_ENABLED
+        self.TECH_VARIANT = TECH_VARIANT
+        if self.TECH_VARIANT in SNAP_SHOT_TABLE.keys():
+            self.TECH_DEBIAN_MIRROR = f"{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")}/{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("date")}"
+        else:
+            self.TECH_DEBIAN_MIRROR = None
 
         self.EFI_BIN_PATH = os.path.join(self.OUT_DIR, "efi.bin")
         self.EFI_MOUNT_PATH = os.path.join(self.MOUNT_DIR, "boot", "efi")
@@ -246,6 +251,8 @@ noble \
 
         bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports-ubuntu.qualcomm.com/ports.ubuntu.com/{SNAP_SHOT_DATE} noble main universe multiverse restricted\""
         bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports-ubuntu.qualcomm.com/ports.ubuntu.com/{SNAP_SHOT_DATE} noble-updates main universe multiverse restricted\""
+        if self.TECH_DEBIAN_MIRROR:
+            bash_command += f" \"deb [arch=arm64 trusted=yes] {self.TECH_DEBIAN_MIRROR} noble main\""
 
         out = run_command_for_result(bash_command)
         if out['returncode'] != 0:

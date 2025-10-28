@@ -34,7 +34,8 @@ class PackageBuildError(Exception):
 class PackageBuilder:
     def __init__(self, CHROOT_NAME, CHROOT_DIR, SOURCE_DIR, APT_SERVER_CONFIG, \
     MANIFEST_MAP=None, DEB_OUT_TEMP_DIR=None, DEB_OUT_DIR=None, DEB_OUT_DIR_APT=None, \
-    DEBIAN_INSTALL_DIR_APT=None, IS_CLEANUP_ENABLED=True, IS_PREPARE_SOURCE=False, DIST= "noble", ARCH="arm64", CHROOT_SUFFIX="ubuntu"):
+    DEBIAN_INSTALL_DIR_APT=None, IS_CLEANUP_ENABLED=True, IS_PREPARE_SOURCE=False, \
+    DIST= "noble", ARCH="arm64", CHROOT_SUFFIX="ubuntu", TECH_VARIANT=None):
         """
         Initializes the PackageBuilder instance.
 
@@ -66,6 +67,11 @@ class PackageBuilder:
         self.DEB_OUT_DIR_APT = DEB_OUT_DIR_APT
         self.DEBIAN_INSTALL_DIR_APT = DEBIAN_INSTALL_DIR_APT
         self.IS_PREPARE_SOURCE = IS_PREPARE_SOURCE
+        self.TECH_VARIANT = TECH_VARIANT
+        if self.TECH_VARIANT in SNAP_SHOT_TABLE.keys():
+            self.TECH_DEBIAN_MIRROR = f"{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")}/{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("date")}"
+        else:
+            self.TECH_DEBIAN_MIRROR = None
         self.DEBIAN_MIRROR = f"http://ports-ubuntu.qualcomm.com/ports.ubuntu.com/{SNAP_SHOT_DATE}"
         self.packages = {}
 
@@ -107,7 +113,6 @@ class PackageBuilder:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
         subprocess.run(["chroot", f"{self.CHROOT_DIR}/{self.CHROOT_NAME}", "bash", "-c", f"sed -i 's|{self.DEBIAN_MIRROR}|[trusted=yes] {self.DEBIAN_MIRROR}|' /etc/apt/sources.list"]) 
-
         if result.returncode != 0:
             raise Exception(f"Error creating schroot environment: {result.stderr}")
         else:
@@ -382,6 +387,8 @@ class PackageBuilder:
             for config in self.APT_SERVER_CONFIG:
                 if config.strip():
                     cmd += f" --extra-repository=\"{config.strip()}\""
+        if self.TECH_DEBIAN_MIRROR:
+            cmd += f" --extra-repository=\"deb [arch=arm64 trusted=yes] {self.TECH_DEBIAN_MIRROR} noble main\"" # Add ROS snapshot repository
 
         try:
             run_command(cmd, cwd=repo_path)
