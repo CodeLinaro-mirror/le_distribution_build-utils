@@ -2,7 +2,7 @@ import os
 
 LINUX_IMAGE_DBGSYM_DEB = "linux-qcom/linux-qcom-tools*_arm64.deb"
 LINUX_MODULES_DEB = "linux-qcom/linux-modules-*_arm64.deb"
-SNAP_SHOT_DATE = "2025-09-23"  #update date for snapshot date from https://ports-ubuntu.qualcomm.com/ports.ubuntu.com/
+SNAP_SHOT_DATE = "2025-10-31"  #upgrade to x06 snapshot from https://ports-ubuntu.qualcomm.com/ports.ubuntu.com/
 
 KERNEL_DEBS = [
     "linux-modules",
