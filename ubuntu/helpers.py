@@ -14,6 +14,7 @@ import shutil
 import logging
 import subprocess
 import glob
+import requests
 from pathlib import Path
 from git import Repo
 from apt_server import AptServer
@@ -586,4 +587,38 @@ def pull_debs_wget(manifest_file_path, out_dir,DEBS_to_download_list,base_url):
                     logger.error(f"error: Failed to download {url}: {e}")
                 # break # Stop after first match
 
+def resolve_manifest_path(manifest_path, workspace, IMAGE_TYPE):
+    if manifest_path is None:
+        logger.warning("Manifest path is None. Skipping resolution.")
+        return None
 
+    if manifest_path.startswith(("http://", "https://")):
+        logger.info(f"Downloading manifest from URL: {manifest_path}")
+        local_manifest = os.path.join(workspace, f"base_{IMAGE_TYPE}.manifest")
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(f"{manifest_path}/{IMAGE_TYPE}.manifest", timeout=30,verify = False)
+                response.raise_for_status()
+
+                # Basic validation: check if content looks like a manifest
+                content = response.content.decode('utf-8')
+                if not content.strip():
+                    raise ValueError("Downloaded manifest is empty")
+
+                with open(local_manifest, "w") as f:
+                    f.write(content)
+                logger.info(f"Manifest downloaded to {local_manifest}")
+                return local_manifest
+            except requests.RequestException as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Download attempt {attempt + 1} failed: {e}. Retrying...")
+                    continue
+                raise RuntimeError(f"Failed to download manifest after {max_retries} attempts: {e}")
+    else:
+        abs_manifest = os.path.abspath(manifest_path)
+        if os.path.isfile(abs_manifest):
+            return abs_manifest
+        else:
+            raise FileNotFoundError(f"Manifest file not found: {abs_manifest}")

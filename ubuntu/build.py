@@ -30,7 +30,7 @@ from build_deb import PackageBuilder, PackageNotFoundError, PackageBuildError
 from release_debian_changelog_update import process_debian_trees
 from constants import *
 from datetime import date
-from helpers import create_new_directory, umount_dir, check_if_root, check_and_append_line_in_file, cleanup_file, cleanup_directory, change_folder_perm_read_write, print_build_logs, start_local_apt_server, build_deb_package_gz, pull_debs_wget, extract_vmlinux
+from helpers import *
 from deb_organize import generate_manifest_map
 from pack_deb import PackagePacker
 from flat_meta import create_flat_meta
@@ -103,6 +103,8 @@ def parse_arguments():
                         help='Pack variant (only base or qcom, default: qcom)')
     parser.add_argument('--packages-manifest-path', type=str, required=False,
                         help='Absolute path to the package manifest file')
+    parser.add_argument('--base-manifest-path', type=str, required=False,
+                        help='Path or URL to base manifest file')
     parser.add_argument('--output-image-file', type=str, required=False,
                         help='Output file name in <workspace>/out/system.img',
                         default="out/system.img")
@@ -174,6 +176,8 @@ args = parse_arguments()
 WORKSPACE_DIR = args.workspace
 IMAGE_TYPE = args.flavor
 PACKAGES_MANIFEST_PATH = args.packages_manifest_path
+BASE_MANIFEST_PATH = None
+
 
 BUILD_PACKAGE_NAME = args.package
 DEBIAN_INSTALL_DIR = args.debians_path
@@ -379,7 +383,7 @@ if IF_PACK_IMAGE:
             cleanup_directory(MOUNT_DIR)
 
         create_new_directory(MOUNT_DIR)
-        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH,QC_FOLDER,IF_RELEASE_ENABLED,TECH_VARIANT=TECH_VARIANT)
+        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH,QC_FOLDER,IF_RELEASE_ENABLED,TECH_VARIANT=TECH_VARIANT,BASE_MANIFEST_PATH=(args.base_manifest_path if args.base_manifest_path else None))
         files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
         if len(files_check) == 0:
             logger.warning(f"No files matching {LINUX_MODULES_DEB} exist in {KERNEL_DEB_OUT_DIR}. Pulling it from pkg.qualcomm.com")
@@ -408,6 +412,8 @@ if IF_PACK_IMAGE:
 
     finally:
         umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=True)
+        if packer :
+            packer.cleanup_downloaded_manifest()
 
         if IS_CLEANUP_ENABLED:
             cleanup_directory(MOUNT_DIR)

@@ -17,12 +17,12 @@ from pathlib import Path
 from queue import Queue
 from collections import defaultdict, deque
 from constants import *
-from helpers import create_new_file, check_if_root, run_command, create_new_directory, run_command_for_result, mount_img, umount_dir, cleanup_file, build_deb_package_gz, parse_debs_manifest
+from helpers import *
 from deb_organize import search_manifest_map_for_path
 from color_logger import logger
 
 class PackagePacker:
-    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED,PACKAGES_MANIFEST_PATH=None,QC_FOLDER=None,IF_RELEASE_ENABLED=False,TECH_VARIANT=None):
+    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED,PACKAGES_MANIFEST_PATH=None,QC_FOLDER=None,IF_RELEASE_ENABLED=False,TECH_VARIANT=None,BASE_MANIFEST_PATH=None):
         """
         Initializes the PackagePacker instance.
 
@@ -63,6 +63,14 @@ class PackagePacker:
             self.TECH_DEBIAN_MIRROR = f"{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")}/{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("date")}"
         else:
             self.TECH_DEBIAN_MIRROR = None
+
+        self.BASE_MANIFEST_PATH = None
+        if BASE_MANIFEST_PATH:
+            try:
+                self.BASE_MANIFEST_PATH = resolve_manifest_path(BASE_MANIFEST_PATH, self.TEMP_DIR, self.IMAGE_TYPE)
+            except Exception as e:
+                logger.critical(f"Manifest resolution failed: {e}")
+                exit(1)
 
         self.EFI_BIN_PATH = os.path.join(self.OUT_DIR, "efi.bin")
         self.EFI_MOUNT_PATH = os.path.join(self.MOUNT_DIR, "boot", "efi")
@@ -154,22 +162,31 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
             self.DEBS = parse_debs_manifest(self.PACKAGES_MANIFEST_PATH)
             return
 
-        base_folder = os.path.join(self.cur_file, "packages", "base", f"{self.IMAGE_TYPE}.manifest")
-        if base_folder:
-            self.BASE_MANIFEST = base_folder
-            if os.path.exists(base_folder):
-                self.DEBS = parse_debs_manifest(self.BASE_MANIFEST)
-                logger.info(f"Using base manifests from: {self.BASE_MANIFEST}")
-        else:
-            logger.error("No base manifests found.")
+        # 2. If base manifest path is provided
+        if self.BASE_MANIFEST_PATH:
+            logger.info(f"Base manifest argument provided: {self.BASE_MANIFEST_PATH}")
 
-        # 3. Merge qcom manifests if variant is qcom
-        if self.VARIANT == "qcom":
-            qcom_path = os.path.join(self.cur_file, "packages", "qcom", f"{self.IMAGE_TYPE}.manifest")
-            self.QCOM_MANIFEST = qcom_path
-            if os.path.exists(qcom_path):
-                logger.info(f"Using QCOM manifest: {self.QCOM_MANIFEST}")
-                self.DEBS.extend(parse_debs_manifest(self.QCOM_MANIFEST))
+            # Parse base manifest (local or downloaded)
+            self.DEBS = parse_debs_manifest(self.BASE_MANIFEST_PATH)
+
+        # 3. Default fallback logic
+        if not self.BASE_MANIFEST_PATH :
+            base_folder = os.path.join(self.cur_file, "packages", "base", f"{self.IMAGE_TYPE}.manifest")
+            if base_folder:
+                self.BASE_MANIFEST = base_folder
+                if os.path.exists(base_folder):
+                    self.DEBS = parse_debs_manifest(self.BASE_MANIFEST)
+                    logger.info(f"Using base manifests from: {self.BASE_MANIFEST}")
+            else:
+                logger.error("No base manifests found.")
+
+            # 3. Merge qcom manifests if variant is qcom
+            if self.VARIANT == "qcom":
+                qcom_path = os.path.join(self.cur_file, "packages", "qcom", f"{self.IMAGE_TYPE}.manifest")
+                self.QCOM_MANIFEST = qcom_path
+                if os.path.exists(qcom_path):
+                    logger.info(f"Using QCOM manifest: {self.QCOM_MANIFEST}")
+                    self.DEBS.extend(parse_debs_manifest(self.QCOM_MANIFEST))
 
         # 4. Merge from qc_folder if provided
         if self.qc_folder:
@@ -317,6 +334,8 @@ noble \
             return self.PACKAGES_MANIFEST_PATH
 
         manifest_paths = []
+        if self.BASE_MANIFEST_PATH :
+            manifest_paths.append(self.BASE_MANIFEST_PATH)
 
         # Always merge from qc_folder and packages
         search_dirs = [
@@ -347,3 +366,17 @@ noble \
                     merged_file.write(f.read())
         logger.info(f"Final merged manifest saved to: {merged_manifest_path}")
         return merged_manifest_path
+
+
+    def cleanup_downloaded_manifest(self):
+        """
+        Cleans up the downloaded manifest file.
+        """
+        if self.BASE_MANIFEST_PATH:
+            try:
+                if os.path.exists(self.BASE_MANIFEST_PATH):
+                    logger.info(f"Cleaning up downloaded manifest: {self.BASE_MANIFEST_PATH}")
+                    os.remove(self.BASE_MANIFEST_PATH)
+                    logger.debug(f"Successfully removed downloaded manifest")
+            except Exception as e:
+                logger.warning(f"Failed to cleanup downloaded manifest: {e}")
