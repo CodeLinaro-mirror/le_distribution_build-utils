@@ -85,7 +85,7 @@ def reorganize_kernel_debs(WORKSPACE_DIR, DEB_OUT_DIR):
     kernel_out_dir = "linux-qcom"
     for root, dirs, files in os.walk(WORKSPACE_DIR):
         for file in files:
-            if file.endswith('.deb'):
+            if file.endswith('.deb') and not file.startswith('zfs-'):
                 pkg_dir = os.path.join(DEB_OUT_DIR, kernel_out_dir)
                 create_new_directory(pkg_dir, delete_if_exists=False)
                 shutil.move(os.path.join(root, file), os.path.join(pkg_dir, file))
