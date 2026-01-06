@@ -25,7 +25,7 @@ COMBINED_DTB_FILE  = "combined-dtb.dtb"
 VMLINUX_QCOM_FILE  = "vmlinux"
 IMAGE_NAME         = "system.img"
 
-IMAGE_SIZE_IN_G     = 8
+IMAGE_SIZE_IN_G     = 9
 
 TERMINAL = "/bin/bash"
 

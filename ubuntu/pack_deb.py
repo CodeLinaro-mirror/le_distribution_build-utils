@@ -194,7 +194,8 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
             qc_base_merged = self.merge_manifests_from_folder(self.qc_folder, self.IMAGE_TYPE,"base")
             logger.info(f"Using base manifests from: {qc_base_merged}")
             if qc_base_merged:
-                self.DEBS.extend(parse_debs_manifest(qc_base_merged))
+                qc_base_debs_list = parse_debs_manifest(qc_base_merged)
+                self.DEBS = self.extend_debs_list(self.DEBS, qc_base_debs_list)
 
             # QCOM manifests from qc_folder
             if self.VARIANT == "qcom":
@@ -208,7 +209,8 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
                         for d in manifest_debs]
                         logger.info("Assuming a release build, appending +rel to all packages.")
                         logger.info(manifest_debs)
-                    self.DEBS.extend(manifest_debs)
+                    self.DEBS = self.extend_debs_list(self.DEBS, manifest_debs)
+
             return
 
         # 3. No manifest found: print message and exit
@@ -380,3 +382,25 @@ noble \
                     logger.debug(f"Successfully removed downloaded manifest")
             except Exception as e:
                 logger.warning(f"Failed to cleanup downloaded manifest: {e}")
+
+    def extend_debs_list(self, debs_list, curr_debs):
+
+        debs_list = debs_list or []
+        curr_debs = curr_debs or []
+
+        # Dictionary to store index of a dict in debs list
+        package_idx_map = {}
+
+        for idx, deb in enumerate(debs_list):
+
+            package_idx_map[deb['package']] = idx
+
+        # remove duplicate/add latest version to existing package and append new DEBS to the list
+        for curr_deb in curr_debs:
+            if curr_deb['package'] in package_idx_map:
+                target_idx = package_idx_map[curr_deb['package']]
+                debs_list[target_idx].update(curr_deb)
+            else:
+                debs_list.append(curr_deb)
+
+        return debs_list
