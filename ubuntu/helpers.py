@@ -563,11 +563,20 @@ def pull_debs_wget(manifest_file_path, out_dir,DEBS_to_download_list,base_url):
     # Get the first match (you can change this logic if needed)
     first_match_value = next(iter(matches.values()))
     first_match_key = next(iter(matches))
-    name_suffix = first_match_value.rsplit('.', 1)[0]
 
-    # Construct new key and update version_map
-    linux_qcom_tools_suffix = 'linux-qcom-tools-' + name_suffix
-    version_map[linux_qcom_tools_suffix] = version_map[first_match_key]
+    prefix = "linux-modules-"
+    suffix = "-qcom"
+
+    if first_match_key.startswith(prefix) and first_match_key.endswith(suffix):
+        # extract version from package name
+        name_suffix = first_match_key[len(prefix):-len(suffix)]
+        # Construct new key and update version_map
+        linux_qcom_tools_suffix = f"linux-qcom-tools-{name_suffix}"
+        version_map[linux_qcom_tools_suffix] = first_match_value
+    else:
+        logger.warning(
+            f"Can't find linux-modules key: {first_match_key}"
+        )
     for module in DEBS_to_download_list:
         for name, version in version_map.items():
             if name.startswith(module):
