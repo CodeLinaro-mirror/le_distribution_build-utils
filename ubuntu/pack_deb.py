@@ -115,8 +115,6 @@ class PackagePacker:
         grub_update_cmd = f"""echo 'GRUB_CMDLINE_LINUX="ro console=ttyMSM0,115200n8 pcie_pme=nomsi earlycon qcom_scm.download_mode=1 reboot=panic_warm"
 GRUB_DEVICE="/dev/disk/by-partlabel/system"
 GRUB_TERMINAL="console"
-GRUB_DEFAULT=1
-GRUB_DISABLE_SUBMENU=y
 GRUB_DISABLE_LINUX_UUID="true"
 GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default', 'grub')}"""
         run_command(grub_update_cmd)
