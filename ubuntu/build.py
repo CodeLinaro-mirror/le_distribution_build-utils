@@ -23,6 +23,7 @@ import shutil
 import argparse
 import traceback
 import glob
+import subprocess
 
 from build_kernel import build_kernel, reorganize_kernel_debs
 from build_dtb import build_dtb
@@ -205,6 +206,7 @@ KERNEL_DEB_URL = args.kernel_deb_url
 SOURCES_DIR = os.path.join(WORKSPACE_DIR, "sources")
 OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
 DEB_OUT_DIR = os.path.join(WORKSPACE_DIR, "debian_packages")
+BUILD_SCRIPT_DIR = os.path.join(WORKSPACE_DIR, "build-utils", "ubuntu")
 
 OSS_DEB_OUT_DIR = os.path.join(DEB_OUT_DIR, "oss")
 QC_FOLDER = os.path.join(WORKSPACE_DIR, "qc")
@@ -245,13 +247,16 @@ if IF_BUILD_KERNEL:
     logger.info("Running the kernel build phase")
 
     try:
-        os.chdir(WORKSPACE_DIR)
-        build_kernel(KERNEL_DIR)
-        reorganize_kernel_debs(WORKSPACE_DIR, KERNEL_DEB_OUT_DIR)
+#        os.chdir(WORKSPACE_DIR)
+#        build_kernel(KERNEL_DIR)
+#        reorganize_kernel_debs(WORKSPACE_DIR, KERNEL_DEB_OUT_DIR)
+#
+#        build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
+#        logger.info("Building vmlinux as requested")
+#        extract_vmlinux(DEB_OUT_DIR, VMLINUXPATH, VMLINUX_QCOM_FILE, OUT_DIR)
 
-        build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
-        logger.info("Building vmlinux as requested")
-        extract_vmlinux(DEB_OUT_DIR, VMLINUXPATH, VMLINUX_QCOM_FILE, OUT_DIR)
+        os.chdir(BUILD_SCRIPT_DIR)
+        subprocess.run(["./build-bootimg.sh"], check=True)
 
     except Exception as e:
         logger.critical(f"Exception during kernel build : {e}")
@@ -282,6 +287,10 @@ if IF_RELEASE_PREP_URL:
         logger.info(f"debian dir: {debian_dir}")
         logger.info(f"action: {st.get('action')}")
         logger.info(f"details: {st.get('details')}")
+
+# Todo: skip local debian packages generation, will refine in the future
+IF_GEN_DEBIANS = False
+S_PREPARE_SOURCE = False
 
 if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
     error_during_packages_build = False
@@ -391,14 +400,16 @@ if IF_PACK_IMAGE:
             #Get the merged manifest path
             manifest_file_path = packer.get_merged_manifest()
 
-            pull_debs_wget(manifest_file_path, KERNEL_DEB_OUT_DIR,KERNEL_DEBS,KERNEL_DEB_URL)
+            # Todo: will refine in the future
+            #pull_debs_wget(manifest_file_path, KERNEL_DEB_OUT_DIR,KERNEL_DEBS,KERNEL_DEB_URL)
         else:
             logger.info("Linux modules found locally. Skipping pull from pkg.qualcomm.com")
 
-        build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
-        if not IF_BUILD_KERNEL: #this is needed when user runs both build kernel and pack image extravtion dhouldnt run twice
-            logger.info("Building vmlinux as requested")
-            extract_vmlinux(DEB_OUT_DIR, VMLINUXPATH, VMLINUX_QCOM_FILE, OUT_DIR)
+        # Todo: will refine in the future
+        #build_dtb(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB, COMBINED_DTB_FILE, OUT_DIR)
+        #if not IF_BUILD_KERNEL: #this is needed when user runs both build kernel and pack image extravtion dhouldnt run twice
+        #    logger.info("Building vmlinux as requested")
+        #    extract_vmlinux(DEB_OUT_DIR, VMLINUXPATH, VMLINUX_QCOM_FILE, OUT_DIR)
 
         packer.build_image()
 

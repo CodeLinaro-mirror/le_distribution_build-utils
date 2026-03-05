@@ -193,6 +193,11 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
             # Base manifests from qc_folder
             qc_base_merged = self.merge_manifests_from_folder(self.qc_folder, self.IMAGE_TYPE,"base")
             logger.info(f"Using base manifests from: {qc_base_merged}")
+
+            # Todo: Not ready, skip for the moment
+            logger.info(f"Skip merge base and qcom manifests from qc_folder")
+            return
+
             if qc_base_merged:
                 qc_base_debs_list = parse_debs_manifest(qc_base_merged)
                 self.DEBS = self.extend_debs_list(self.DEBS, qc_base_debs_list)
