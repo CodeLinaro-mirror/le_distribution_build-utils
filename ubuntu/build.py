@@ -37,6 +37,7 @@ from pack_deb import PackagePacker
 from flat_meta import create_flat_meta
 from deb_abi_checker import multiple_repo_deb_abi_checker
 from color_logger import logger
+from pathlib import Path
 
 # Check for root privileges
 if not check_if_root():
@@ -431,6 +432,23 @@ if IF_PACK_IMAGE:
         if error_during_image_packing:
             logger.critical("Image packing failed. Exiting.")
             exit(1)
+        # Execute prebuild process.
+        release_dir = WORKSPACE_DIR + "/release"
+        if os.path.isdir(release_dir):
+            script_path = release_dir + "/ubuntu_prebuilt_process.sh"
+            if Path(script_path).is_file():
+                # Build the command:
+                # WORKSPACE_DIR\release\ubuntu_prebuilt_process.sh WORKSPACE_DIR
+                cmd = [
+                    "bash",
+                    str(script_path),
+                    str(WORKSPACE_DIR),
+                ]
+
+                # Run the command from the release directory
+                print(f"[INFO] Running command: {' '.join(cmd)}")
+                subprocess.run(cmd, cwd=str(release_dir), check=True)
+
 
 if IF_FLAT_META:
     try:
