@@ -120,21 +120,23 @@ class PackageBuilder:
 
     def load_packages(self):
         """Load package metadata from build_config.py and fetch dependencies from control files."""
-        for root, dirs, files in os.walk(self.SOURCE_DIR):
-            dirs[:] = [d for d in dirs if d != '.git']
-            if 'debian' in dirs:
-                root_name = Path(root).name
-                debian_dir = Path(os.path.join(root, 'debian'))
-                pkg_names, dependencies = self.get_packages_from_control(debian_dir / "control")
+        source_dirs = self.SOURCE_DIR if isinstance(self.SOURCE_DIR, list) else [self.SOURCE_DIR]
+        for source_dir in source_dirs:
+            for root, dirs, files in os.walk(source_dir):
+                dirs[:] = [d for d in dirs if d != '.git']
+                if 'debian' in dirs:
+                    root_name = Path(root).name
+                    debian_dir = Path(os.path.join(root, 'debian'))
+                    pkg_names, dependencies = self.get_packages_from_control(debian_dir / "control")
 
-                self.packages[str(debian_dir)] = {
-                    "debian_dir": debian_dir,
-                    "repo_path": Path(root),
-                    "repo_name": root_name,
-                    "dependencies": dependencies,
-                    "packages": pkg_names,
-                    "visited": False
-                }
+                    self.packages[str(debian_dir)] = {
+                        "debian_dir": debian_dir,
+                        "repo_path": Path(root),
+                        "repo_name": root_name,
+                        "dependencies": dependencies,
+                        "packages": pkg_names,
+                        "visited": False
+                    }
 
     def get_packages_from_control(self, control_file):
         """
@@ -269,7 +271,12 @@ class PackageBuilder:
         """
 
         # Look back into the source directory manifest to determine if the package is OSS (open source) or PROP (proprietary).
-        oss_or_prop = search_manifest_map_for_path(self.MANIFEST_MAP, self.SOURCE_DIR, repo_source_path)
+        source_dirs = self.SOURCE_DIR if isinstance(self.SOURCE_DIR, list) else [self.SOURCE_DIR]
+        matching_source_dir = next(
+            (sd for sd in source_dirs if str(repo_source_path).startswith(sd)),
+            source_dirs[0]
+        )
+        oss_or_prop = search_manifest_map_for_path(self.MANIFEST_MAP, matching_source_dir, repo_source_path)
 
         repo_parent_path = repo_source_path.parent
 
@@ -398,6 +405,14 @@ class PackageBuilder:
             raise PackageBuildError(f"Failed to build {packages}: {e}")
 
         self.reorganize_outputs_in_oss_prop(repo_path, package_temp_dir)
+
+        # Clean up dpkg-source artifacts (*.tar.gz, *.tar.xz, *.dsc) left in the
+        # parent directory of the source tree by dpkg-buildpackage / sbuild.
+        parent_dir = repo_path.parent
+        for artifact in parent_dir.glob(f"{repo_name}_*"):
+            if artifact.suffix in ('.gz', '.xz', '.dsc') and artifact.is_file():
+                artifact.unlink()
+                logger.debug(f"Removed dpkg-source artifact: {artifact}")
 
         logger.info(f"{packages} built successfully!")
 

@@ -120,6 +120,8 @@ def parse_arguments():
                         help="Prepares sources, does not build", default=False)
     parser.add_argument("--no-abi-check", action="store_true",
                         help="Skip ABI compatibility check", default=False)
+    parser.add_argument('--build-full-image', action='store_true', default=False,
+                        help='Full build: equivalent to --build-kernel --gen-debians --pack-image')
 
     # Deprecated
     parser.add_argument('--chroot-name', type=str, required=False,
@@ -187,9 +189,9 @@ BUILD_PACKAGE_NAME = args.package
 DEBIAN_INSTALL_DIR = args.debians_path
 
 # Process Flags
-IF_BUILD_KERNEL = args.build_kernel
-IF_GEN_DEBIANS = args.gen_debians
-IF_PACK_IMAGE = args.pack_image or args.pack_image_rel
+IF_BUILD_KERNEL = args.build_kernel or args.build_full_image
+IF_GEN_DEBIANS = args.gen_debians or args.build_full_image
+IF_PACK_IMAGE = args.pack_image or args.pack_image_rel or args.build_full_image
 IF_RELEASE_ENABLED = args.pack_image_rel
 IF_RELEASE_PREP_URL = args.release_prep_url
 IF_FLAT_META = args.flat_meta
@@ -206,7 +208,13 @@ NO_ABI_CHECK = args.no_abi_check
 # Define kernel and output directories
 KERNEL_DIR = args.kernel_src_dir
 KERNEL_DEB_URL = args.kernel_deb_url
-SOURCES_DIR = os.path.join(WORKSPACE_DIR, "sources")
+SOURCES_DIRS = [
+    # os.path.join(WORKSPACE_DIR, "sources"),
+    # Add more directories to scan for debian packages here, e.g.:
+    # os.path.join(WORKSPACE_DIR, "vendor"),
+    os.path.join(WORKSPACE_DIR, "system", "core"),
+    os.path.join(WORKSPACE_DIR, "vendor", "qcom"),
+]
 OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
 DEB_OUT_DIR = os.path.join(WORKSPACE_DIR, "debian_packages")
 BUILD_SCRIPT_DIR = os.path.join(WORKSPACE_DIR, "build-utils", "ubuntu")
@@ -230,7 +238,7 @@ APT_SERVER_CONFIG = list(set(APT_SERVER_CONFIG)) if APT_SERVER_CONFIG else None
 # Create necessary directories for the build process
 create_new_directory(KERNEL_DIR, delete_if_exists=False)
 create_new_directory(KERNEL_DEB_OUT_DIR, delete_if_exists=False)
-create_new_directory(SOURCES_DIR, delete_if_exists=False)
+create_new_directory(SOURCES_DIRS[0], delete_if_exists=False)
 create_new_directory(OUT_DIR, delete_if_exists=False)
 create_new_directory(DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(OSS_DEB_OUT_DIR, delete_if_exists=False)
@@ -274,12 +282,13 @@ if IF_BUILD_KERNEL:
 if IF_RELEASE_PREP_URL:
     logger.info("Running the release preparation phase")
     try:
-        statuses = process_debian_trees(
-            input_root=SOURCES_DIR,
-            apt_source_line=IF_RELEASE_PREP_URL,
-            prefer_debian_changelog=False,
-            dry_run=False,
-        )
+        for _src_dir in SOURCES_DIRS:
+            statuses = process_debian_trees(
+                input_root=_src_dir,
+                apt_source_line=IF_RELEASE_PREP_URL,
+                prefer_debian_changelog=False,
+                dry_run=False,
+            )
     except Exception as e:
         logger.error(f"[FATAL] {e}")
         #return 1
@@ -290,10 +299,6 @@ if IF_RELEASE_PREP_URL:
         logger.info(f"debian dir: {debian_dir}")
         logger.info(f"action: {st.get('action')}")
         logger.info(f"details: {st.get('details')}")
-
-# Todo: skip local debian packages generation, will refine in the future
-IF_GEN_DEBIANS = False
-S_PREPARE_SOURCE = False
 
 if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
     error_during_packages_build = False
@@ -310,7 +315,7 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             DEBIAN_INSTALL_DIR_APT = build_deb_package_gz(DEBIAN_INSTALL_DIR, start_server=True)
 
         # Initialize the PackageBuilder to load packages
-        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIR, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE,TECH_VARIANT=TECH_VARIANT)
+        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIRS, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE,TECH_VARIANT=TECH_VARIANT)
         builder.load_packages()
 
         # Build a specific package if provided, otherwise build all packages
