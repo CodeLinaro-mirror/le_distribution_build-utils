@@ -50,6 +50,8 @@ CHROOT_SUFFIX  = "ubuntu"
 CHROOT_NAME    = DIST + "-" + ARCH + "-" + CHROOT_SUFFIX
 CHROOT_DIR     = "/srv/chroot"
 
+DEFAULT_WORKSPACE = str(Path(__file__).resolve().parents[2])
+
 
 def parse_arguments():
     """
@@ -72,7 +74,7 @@ def parse_arguments():
                         help='Mount directory for builds (default: <workspace>/build/mount)',
                         default="build/mount")
     parser.add_argument('--workspace', type=str, required=False,
-                        default=".",
+                        default=DEFAULT_WORKSPACE,
                         help='Workspace directory, defaults to pwd')
     parser.add_argument('--build-kernel', action='store_true', default=False,
                         help='Build kernel')
