@@ -2,6 +2,14 @@
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 set -x
+PACKAGE_ONLY=false
+while getopts "p" opt; do
+  case $opt in
+    p) PACKAGE_ONLY=true ;;
+    \?) echo "Invalid option" ; exit 1 ;;
+  esac
+done
+
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 WORKSPACE=$(dirname "$(dirname "$SCRIPT_DIR")")
 KERNEL_PLATFORM_DIR="${WORKSPACE}/kernel/kernel_platform"
@@ -433,6 +441,27 @@ build_bootimg() {
         --cmdline ' rootwait console=ttyMSM0,115200,n8 firmware_class.path=/firmware/vm/boot systemd.gpt_auto=0 cgroup.memory=nokmem,nosocket qcom_scm.download_mode=1 page_owner=on rcupdate.rcu_expedited=1 rcu_nocbs=0-17 rcupdate.rcu_normal_after_boot=0 fsck.repair=yes systemd.service_watchdogs=0 driver_async_probe=scmi-hwmon root=PARTLABEL=system_a systemd.machine-id=512cec5b6c9547259d2c6ff2baf84f7e' \
         --output  ${OUTPUT_DIR}/boot.img
 }
+# create kernal package manually, Depends on kernel build
+create_kernel_package() {
+    export KERNELRELEASE=`grep 'UTS_RELEASE' ${KERNEL_PLATFORM_DIR}/kernel/include/generated/utsrelease.h | cut -d'"' -f2`
+    echo $KERNELRELEASE
+    MAKEFILE=${KERNEL_PLATFORM_DIR}/kernel/Makefile
+    export KERNELVERSION=$(awk '/^VERSION =|^PATCHLEVEL =|^SUBLEVEL =/ {print $3}' "$MAKEFILE" | paste -sd '.' -)
+    echo $KERNELVERSION
+    export KCONFIG_CONFIG=${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/defconfig
+    export srctree=${KERNEL_PLATFORM_DIR}/kernel/
+    export KBUILD_DEBARCH=arm64
+    export ARCH=arm64
+
+    cd ${srctree}
+    ./scripts/package/mkdebian --need-source
+    debuild --no-lintian --no-tgz-check -us -uc
+
+}
+
+if [[ $PACKAGE_ONLY = false ]];then
 build_kernel
 build_oot_dtbo
 build_bootimg
+fi
+create_kernel_package
