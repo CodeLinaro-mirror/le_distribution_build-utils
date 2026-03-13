@@ -186,20 +186,21 @@ EOF
     ${KERNEL_PLATFORM_DIR}/kernel/scripts/kconfig/merge_config.sh -m -r -y ${base_defconfig} ${kernel_arch_config}
 }
 build_kernel() {
+    KERNELRELEASE=$(awk '/^VERSION =|^PATCHLEVEL =|^SUBLEVEL =/ {print $3}' ${KERNEL_PLATFORM_DIR}/kernel/Makefile | paste -sd '.' -)
     do_kernel_patch
     do_generate_base_defconfig
     cd "${KERNEL_PLATFORM_DIR}"/kernel
     make defconfig
     make scripts
     make -j 16 \
-        CC=gcc LD=ld.bfd OBJCOPY=objcopy STRIP=strip \
+        CC=gcc LD=ld.bfd OBJCOPY=objcopy STRIP=strip KERNELRELEASE=${KERNELRELEASE}\
         dtbs
     make -j 16 \
-        CC=gcc LD=ld.bfd OBJCOPY=objcopy STRIP=strip \
+        CC=gcc LD=ld.bfd OBJCOPY=objcopy STRIP=strip KERNELRELEASE=${KERNELRELEASE}\
         KCFLAGS="-I$(pwd)/drivers/soc/qcom" \
         Image
     make -j 16 \
-        CC=gcc LD=ld.bfd OBJCOPY=objcopy STRIP=strip \
+        CC=gcc LD=ld.bfd OBJCOPY=objcopy STRIP=strip KERNELRELEASE=${KERNELRELEASE}\
         KCFLAGS="-I$(pwd)/drivers/soc/qcom" \
         INSTALL_MOD_STRIP=1 modules
 }
