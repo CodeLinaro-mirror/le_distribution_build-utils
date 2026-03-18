@@ -25,7 +25,7 @@ do_kernel_patch() {
     downstream_rt_patch_path="${WORKSPACE}/layers/meta-qti-realtime/recipes-kernel/linux/linux-qcom-custom-rt"
     downstream_qc_patch_path="${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files"
     cd "${OUTPUT_DIR}"
-    if [ ! -f "patch-6.6.119-rt67.patch.gz" ]; then
+    if [ ! -f "${OUTPUT_DIR}/patch-6.6.119-rt67.patch.gz" ]; then
         wget https://cdn.kernel.org/pub/linux/kernel/projects/rt/6.6/older/patch-6.6.119-rt67.patch.gz
         if [ "$(md5sum "patch-6.6.119-rt67.patch.gz" | awk '{print $1}')" != "e78f515f30aa9fb315f36ce38bcf7932" ]; then
             echo "Error: md5sum check error"
