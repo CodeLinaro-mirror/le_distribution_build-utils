@@ -454,10 +454,38 @@ create_kernel_package() {
     export KBUILD_DEBARCH=arm64
     export ARCH=arm64
 
+    rm -rf  ${WORKSPACE}/kernel/kernel_platform/source
+    mkdir -p ${WORKSPACE}/kernel/kernel_platform/source/usr/src
+    cp -r ${WORKSPACE}/kernel/kernel_platform/kernel/ ${WORKSPACE}/kernel/kernel_platform/source/usr/src
+    mkdir ${WORKSPACE}/kernel/kernel_platform/source/DEBIAN
+    touch ${WORKSPACE}/kernel/kernel_platform/source/DEBIAN/control
+    chmod 0755 ${WORKSPACE}/kernel/kernel_platform/source/DEBIAN
+    chmod 0755 ${WORKSPACE}/kernel/kernel_platform/source/DEBIAN/control
+    cat <<EOF > ${WORKSPACE}/kernel/kernel_platform/source/DEBIAN/control
+Package: linux-qcom-source
+Section: base
+Version: 6.6.110
+Priority: optional
+Architecture: all
+Maintainer: leiwan <leiwan@autobuild-arm-sh01-lnx.qualcomm.com>
+Homepage: https://www.kernel.org/
+Description: Linux source code package deployed without compilation.
+EOF
+    cd ${WORKSPACE}/kernel/kernel_platform
+    dpkg-deb --build source
+    mv source.deb linux-qcom-source.deb
+
     cd ${srctree}
     ./scripts/package/mkdebian --need-source
     debuild --no-lintian --no-tgz-check -us -uc
-
+}
+# reoragnize kernel packages
+reorganize_kernel_deb() {
+    rm -rf ${WORKSPACE}/debian_packages/oss/linux-qcom/
+    mkdir -p ${WORKSPACE}/debian_packages/oss/linux-qcom/
+    cp ${WORKSPACE}/kernel/kernel_platform/linux-qcom-source.deb ${WORKSPACE}/debian_packages/oss/linux-qcom/
+    cp ${WORKSPACE}/kernel/kernel_platform/linux-libc-dev*deb ${WORKSPACE}/debian_packages/oss/linux-qcom/
+    cp ${WORKSPACE}/kernel/kernel_platform/linux-headers*deb ${WORKSPACE}/debian_packages/oss/linux-qcom/
 }
 
 if [[ $PACKAGE_ONLY = false ]];then
@@ -466,3 +494,4 @@ build_oot_dtbo
 build_bootimg
 fi
 create_kernel_package
+reorganize_kernel_deb
