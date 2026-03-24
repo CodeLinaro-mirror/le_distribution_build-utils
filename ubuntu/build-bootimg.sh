@@ -31,7 +31,7 @@ do_kernel_patch() {
             echo "Error: md5sum check error"
             exit 1
         fi
-        gunzip patch-6.6.119-rt67.patch.gz
+        gunzip -k patch-6.6.119-rt67.patch.gz
     fi
     cd "${KERNEL_PLATFORM_DIR}"/kernel
     # Apply upstream RT patch
