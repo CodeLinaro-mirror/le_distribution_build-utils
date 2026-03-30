@@ -439,7 +439,7 @@ build_bootimg() {
         --pagesize 4096 \
         --base 0x80000000 \
         --ramdisk_offset 0x0 \
-        --cmdline ' rootwait console=ttyMSM0,115200,n8 firmware_class.path=/firmware/vm/boot systemd.gpt_auto=0 cgroup.memory=nokmem,nosocket qcom_scm.download_mode=1 page_owner=on rcupdate.rcu_expedited=1 rcu_nocbs=0-17 rcupdate.rcu_normal_after_boot=0 fsck.repair=yes systemd.service_watchdogs=0 driver_async_probe=scmi-hwmon root=PARTLABEL=system_a systemd.machine-id=512cec5b6c9547259d2c6ff2baf84f7e' \
+        --cmdline ' rootwait console=ttyMSM0,115200,n8 firmware_class.path=/firmware/vm/boot systemd.gpt_auto=0 cgroup.memory=nokmem,nosocket qcom_scm.download_mode=1 page_owner=on rcupdate.rcu_expedited=1 rcu_nocbs=0-17 rcupdate.rcu_normal_after_boot=0 fsck.repair=yes systemd.service_watchdogs=0 driver_async_probe=scmi-hwmon androidboot.slot_suffix=_a root=PARTLABEL=system_a systemd.machine-id=512cec5b6c9547259d2c6ff2baf84f7e' \
         --output  ${OUTPUT_DIR}/boot.img
 }
 # create kernal package manually, Depends on kernel build
