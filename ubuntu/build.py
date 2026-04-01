@@ -209,11 +209,12 @@ NO_ABI_CHECK = args.no_abi_check
 KERNEL_DIR = args.kernel_src_dir
 KERNEL_DEB_URL = args.kernel_deb_url
 SOURCES_DIRS = [
-    # os.path.join(WORKSPACE_DIR, "sources"),
     # Add more directories to scan for debian packages here, e.g.:
-    # os.path.join(WORKSPACE_DIR, "vendor"),
-    os.path.join(WORKSPACE_DIR, "system", "core"),
-    os.path.join(WORKSPACE_DIR, "vendor", "qcom"),
+    #os.path.join(WORKSPACE_DIR, "system", "core"),
+    #os.path.join(WORKSPACE_DIR, "vendor", "qcom"),
+    # Don't compile any packages to quick merge current changes.
+    # Add below because SOURCES_DIRS can't be blank.
+    os.path.join(WORKSPACE_DIR, "cant_blank"),
 ]
 OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
 DEB_OUT_DIR = os.path.join(WORKSPACE_DIR, "debian_packages")
