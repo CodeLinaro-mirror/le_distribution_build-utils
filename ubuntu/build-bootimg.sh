@@ -182,6 +182,7 @@ CONFIG_PCS_XPCS=y
 CONFIG_QCOM_MDT_LOADER=y
 CONFIG_VFIO_PLATFORM=y
 CONFIG_VFIO_PLATFORM_BASE=y
+CONFIG_QCOM_SOCINFO=y
 EOF
     base_defconfig=${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_defconfig
     kernel_arch_config="${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto.config  ${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto_debug.config  ${WORKSPACE}/layers/meta-qti-realtime/recipes-kernel/linux/linux-qcom-custom-rt/qcom_rt.cfg  ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/sa8797p-generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/selinux.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/devmem.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/no-earlyramdisk.cfg"
