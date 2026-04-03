@@ -121,7 +121,7 @@ class PackageBuilder:
         """Load package metadata from build_config.py and fetch dependencies from control files."""
         source_dirs = self.SOURCE_DIR if isinstance(self.SOURCE_DIR, list) else [self.SOURCE_DIR]
         for source_dir in source_dirs:
-            for root, dirs, files in os.walk(source_dir):
+            for root, dirs, files in os.walk(source_dir, followlinks=True):
                 dirs[:] = [d for d in dirs if d != '.git']
                 if 'debian' in dirs:
                     root_name = Path(root).name
@@ -396,12 +396,42 @@ class PackageBuilder:
         if self.TECH_DEBIAN_MIRROR:
             cmd += f" --extra-repository=\"deb [arch=arm64 trusted=yes] {self.TECH_DEBIAN_MIRROR} noble main\"" # Add ROS snapshot repository
 
+        # Resolve directory symlinks in repo_path so that dpkg-source includes
+        # the actual content in the source tarball (symlink targets would be
+        # broken inside the sbuild chroot).
+        resolved_symlinks = []
+        for entry in os.scandir(repo_path):
+            if entry.is_symlink():
+                try:
+                    original_target = os.readlink(entry.path)   # preserve original (possibly relative) target
+                    real_target = os.path.realpath(entry.path)  # absolute resolved path
+                    if os.path.isdir(real_target) and os.access(real_target, os.R_OK):
+                        logger.debug(f"Resolving symlink for sbuild: {entry.path} -> {real_target}")
+                        os.remove(entry.path)
+                        shutil.copytree(real_target, entry.path, symlinks=True)
+                        resolved_symlinks.append((entry.path, original_target))
+                    else:
+                        logger.warning(f"Skipping symlink {entry.path}: target not accessible or not a directory")
+                except (OSError, IOError) as e:
+                    logger.warning(f"Failed to resolve symlink {entry.path}: {e}")
+
         try:
             run_command(cmd, cwd=repo_path)
         except Exception as e:
             logger.error(f"Failed to build {packages}: {e}")
             print_build_logs(package_temp_dir)
             raise PackageBuildError(f"Failed to build {packages}: {e}")
+        finally:
+            # Restore symlinks after build
+            for (link_path, original_target) in resolved_symlinks:
+                try:
+                    if os.path.exists(link_path) and not os.path.islink(link_path):
+                        shutil.rmtree(link_path)
+                        os.symlink(original_target, link_path)
+                        logger.debug(f"Restored symlink: {link_path} -> {original_target}")
+                except Exception as restore_error:
+                    logger.error(f"Failed to restore symlink {link_path}: {restore_error}")
+                    # Continue with other symlinks even if one fails
 
         self.reorganize_outputs_in_oss_prop(repo_path, package_temp_dir)
 

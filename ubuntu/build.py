@@ -219,6 +219,8 @@ SOURCES_DIRS = [
     os.path.join(WORKSPACE_DIR, "layers", "meta-qti-automotive-prop"),
     os.path.join(WORKSPACE_DIR, "sources", "robotics-sdk"),
     # Don't compile any packages to quick merge current changes.
+    os.path.join(WORKSPACE_DIR, "wlan", "qcacld-3.0"),
+    os.path.join(WORKSPACE_DIR, "device", "qcom", "wlan"),
 ]
 OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
 DEB_OUT_DIR = os.path.join(WORKSPACE_DIR, "debian_packages")
