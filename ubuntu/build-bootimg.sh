@@ -179,6 +179,9 @@ CONFIG_STMMAC_PLATFORM=y
 CONFIG_AQUANTIA_PHY=y
 CONFIG_MARVELL_PHY=y
 CONFIG_PCS_XPCS=y
+CONFIG_QCOM_MDT_LOADER=y
+CONFIG_VFIO_PLATFORM=y
+CONFIG_VFIO_PLATFORM_BASE=y
 EOF
     base_defconfig=${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_defconfig
     kernel_arch_config="${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto.config  ${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto_debug.config  ${WORKSPACE}/layers/meta-qti-realtime/recipes-kernel/linux/linux-qcom-custom-rt/qcom_rt.cfg  ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/sa8797p-generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/selinux.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/devmem.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/no-earlyramdisk.cfg"
@@ -188,6 +191,8 @@ EOF
 build_kernel() {
     KERNELRELEASE=$(awk '/^VERSION =|^PATCHLEVEL =|^SUBLEVEL =/ {print $3}' ${KERNEL_PLATFORM_DIR}/kernel/Makefile | paste -sd '.' -)
     do_kernel_patch
+
+    set -e
     do_generate_base_defconfig
     cd "${KERNEL_PLATFORM_DIR}"/kernel
     make defconfig
@@ -389,7 +394,8 @@ build_oot_dtbo() {
         CC=gcc LD=ld.bfd OBJCOPY=objcopy STRIP=strip \
         dtbs
     cd "${WORKSPACE}/vendor/qcom/opensource/audiolite/devicetree"
-    ln -sf ${WORKSPACE}/vendor/qcom/opensource/safelinux-system-cfg/devicetree/oot-dt-bindings oot-dt-bindings
+    mkdir -p safelinux-system-cfg
+    ln -sf ${WORKSPACE}/vendor/qcom/opensource/safelinux-system-cfg/devicetree/oot-dt-bindings safelinux-system-cfg/oot-dt-bindings
     make -j 16 \
         KERNEL_SRC="${KERNEL_PLATFORM_DIR}"/kernel \
         AUDIOLITE_DTC_INCLUDE="${KERNEL_PLATFORM_DIR}/kernel/include ${WORKSPACE}/vendor/qcom/opensource/audiolite/devicetree" \
@@ -488,6 +494,7 @@ reorganize_kernel_deb() {
     cp ${WORKSPACE}/kernel/kernel_platform/linux-headers*deb ${WORKSPACE}/debian_packages/oss/linux-qcom/
 }
 
+mkdir -p "${OUTPUT_DIR}"
 if [[ $PACKAGE_ONLY = false ]];then
 build_kernel
 build_oot_dtbo
