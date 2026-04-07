@@ -16,7 +16,8 @@ analyzer-tools 1.0.0
 # libawe-controller 1.0.0
 libbase 1.0.0
 bootkpi-logging 1.0.0
-#bt-dlkm 1.0
+bt-dlkm 1.0.0
+bt-module-load 1.0.0
 compute-osal 1.0.2
 compute-resmgr 1.0.1
 compute-ressched 1.0.1
