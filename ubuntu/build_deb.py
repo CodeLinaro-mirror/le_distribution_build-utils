@@ -69,12 +69,11 @@ class PackageBuilder:
         self.IS_PREPARE_SOURCE = IS_PREPARE_SOURCE
         self.TECH_VARIANT = TECH_VARIANT
         if self.TECH_VARIANT in SNAP_SHOT_TABLE.keys():
-            self.TECH_DEBIAN_MIRROR = f"{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")}/{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("date")}"
+            self.TECH_DEBIAN_MIRROR = SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")
         else:
             self.TECH_DEBIAN_MIRROR = None
         self.DEBIAN_MIRROR = "http://ports.ubuntu.com/ubuntu-ports"
         self.packages = {}
-
         self.generate_schroot_config()
 
     def generate_schroot_config(self):

@@ -90,8 +90,8 @@ def parse_arguments():
                         default="https://pkg.qualcomm.com/pool/stable/main")
     parser.add_argument('--flavor', type=str, choices=['server', 'desktop'], default='server',
                         help='Image flavor (only server or desktop, default: server)')
-    parser.add_argument('--tech', type=str, choices=['ros', 'iot'], default=None,
-                        help='tech flavor (only ros or iot, default: None)')
+    parser.add_argument('--tech', type=str, choices=['ros', 'iot'], default='ros',
+                        help='tech flavor (only ros or iot, default: ros)')
     parser.add_argument('--debians-path', type=str, required=False,
                         help='Directory with debians to install')
     parser.add_argument('--gen-debians', action='store_true', default=False,
@@ -217,6 +217,8 @@ SOURCES_DIRS = [
     os.path.join(WORKSPACE_DIR, "android_compat"),
     os.path.join(WORKSPACE_DIR, "layers", "meta-qti-automotive"),
     os.path.join(WORKSPACE_DIR, "layers", "meta-qti-automotive-prop"),
+    os.path.join(WORKSPACE_DIR, "sources", "robotics-sdk"),
+    # Don't compile any packages to quick merge current changes.
 ]
 OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
 DEB_OUT_DIR = os.path.join(WORKSPACE_DIR, "debian_packages")

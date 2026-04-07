@@ -60,7 +60,7 @@ class PackagePacker:
         self.IS_RELEASE_ENABLED = IF_RELEASE_ENABLED
         self.TECH_VARIANT = TECH_VARIANT
         if self.TECH_VARIANT in SNAP_SHOT_TABLE.keys():
-            self.TECH_DEBIAN_MIRROR = f"{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")}/{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("date")}"
+            self.TECH_DEBIAN_MIRROR = SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")
         else:
             self.TECH_DEBIAN_MIRROR = None
 
