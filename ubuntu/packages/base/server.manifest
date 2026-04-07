@@ -1,3 +1,5 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 acl 2.3.2-1build1.1
 adduser 3.137ubuntu1
 alsa-topology-conf 1.2.5.1-2
@@ -37,8 +39,6 @@ console-setup 1.226ubuntu1
 console-setup-linux 1.226ubuntu1
 coreutils 9.4-3ubuntu6.1
 cpio 2.15+dfsg-1ubuntu2
-cron 3.0pl1-184ubuntu2
-cron-daemon-common 3.0pl1-184ubuntu2
 cryptsetup 2:2.7.0-1ubuntu4.2
 cryptsetup-bin 2:2.7.0-1ubuntu4.2
 cryptsetup-initramfs 2:2.7.0-1ubuntu4.2
@@ -63,7 +63,6 @@ distro-info-data 0.60ubuntu0.5
 dmeventd 2:1.02.185-3ubuntu3.2
 dmidecode 3.5-3ubuntu0.1
 dmsetup 2:1.02.185-3ubuntu3.2
-dns-root-data 2024071801~ubuntu0.24.04.1
 dnsmasq-base 2.90-2ubuntu0.1
 dosfstools 4.2-1.1build1
 dpkg 1.22.6ubuntu6.5
@@ -78,8 +77,6 @@ fdisk 2.39.3-9ubuntu6.4
 file 1:5.45-3build1
 finalrd 9build1
 findutils 4.9.0-5build1
-firmware-sof-signed 2023.12.1-1ubuntu1.10
-fonts-ubuntu-console 0.869+git20240321-0ubuntu1
 friendly-recovery 0.2.42
 ftp 20230507-2build3
 fuse3 3.14.0-5build1
