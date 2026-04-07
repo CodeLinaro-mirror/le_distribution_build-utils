@@ -72,7 +72,7 @@ class PackageBuilder:
             self.TECH_DEBIAN_MIRROR = f"{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")}/{SNAP_SHOT_TABLE.get(TECH_VARIANT).get("date")}"
         else:
             self.TECH_DEBIAN_MIRROR = None
-        self.DEBIAN_MIRROR = f"http://ports-ubuntu.qualcomm.com/ports.ubuntu.com/{SNAP_SHOT_DATE}"
+        self.DEBIAN_MIRROR = "http://ports.ubuntu.com/ubuntu-ports"
         self.packages = {}
 
         self.generate_schroot_config()

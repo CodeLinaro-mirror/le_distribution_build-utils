@@ -76,6 +76,7 @@ class PackagePacker:
         self.EFI_MOUNT_PATH = os.path.join(self.MOUNT_DIR, "boot", "efi")
 
         self.DEBS = []
+        self.QCOM_PINNED_PACKAGES = {}  # package -> version, from packages/<flavor>.manifest
         self.APT_SERVER_CONFIG = APT_SERVER_CONFIG
 
         self.IS_CLEANUP_ENABLED = IS_CLEANUP_ENABLED
@@ -188,7 +189,26 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
                     logger.info(f"Using QCOM manifest: {self.QCOM_MANIFEST}")
                     self.DEBS.extend(parse_debs_manifest(self.QCOM_MANIFEST))
 
-        # 4. Merge from qc_folder if provided
+        # 4. Load custom packages from packages/<flavor>.manifest if it exists
+        # Qualcomm-specific packages are listed here with version pinning.
+        custom_manifest_path = os.path.join(self.cur_file, "packages", f"{self.IMAGE_TYPE}.manifest")
+        if os.path.exists(custom_manifest_path):
+            logger.info(f"Loading custom packages from: {custom_manifest_path}")
+            custom_debs = parse_debs_manifest(custom_manifest_path)
+            if custom_debs:
+                self.DEBS = self.extend_debs_list(self.DEBS, custom_debs)
+                # Record Qualcomm-specific packages for version pinning in get_deb_list()
+                self.QCOM_PINNED_PACKAGES = {
+                    deb['package']: deb['version']
+                    for deb in custom_debs
+                    if deb.get('version')
+                }
+                logger.info(f"Added {len(custom_debs)} custom package(s) from {custom_manifest_path}, "
+                            f"{len(self.QCOM_PINNED_PACKAGES)} with version pinning")
+        else:
+            logger.debug(f"No custom manifest found at: {custom_manifest_path}")
+
+        # 5. Merge from qc_folder if provided
         if self.qc_folder:
             # Base manifests from qc_folder
             qc_base_merged = self.merge_manifests_from_folder(self.qc_folder, self.IMAGE_TYPE,"base")
@@ -225,16 +245,25 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
     def get_deb_list(self) -> None:
         """
         Constructs a list of Debian packages to be included in the image.
+        - Qualcomm-specific packages (from packages/<flavor>.manifest) use version pinning
+          to ensure the exact local version is installed.
+        - Ubuntu official packages ignore version, installing the latest available.
 
         Returns:
         --------
-        - str: A comma-separated string of package names and versions.
+        - str: A comma-separated string of package specs (name or name=version).
         """
-        deb_list = self.DEBS
-        deb_list = ['{}={}'.format(str(deb['package']).strip(), str(deb['version']).strip()) if deb['version'] else deb['package'] for deb in deb_list]
-        deb_list = ['ca-certificates'] + deb_list
-        deb_list = list(set(deb_list))
-        debs     = ",".join(deb_list)
+        result = []
+        for deb in self.DEBS:
+            pkg = str(deb['package']).strip()
+            pinned_version = self.QCOM_PINNED_PACKAGES.get(pkg)
+            if pinned_version:
+                result.append(f"{pkg}={str(pinned_version).strip()}")
+            else:
+                result.append(pkg)
+        result = ['ca-certificates'] + result
+        result = list(set(result))
+        debs = ",".join(result)
 
         return debs
 
@@ -277,8 +306,8 @@ noble \
                 if config.strip():
                     bash_command += f" \"{config.strip()}\""
 
-        bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports-ubuntu.qualcomm.com/ports.ubuntu.com/{SNAP_SHOT_DATE} noble main universe multiverse restricted\""
-        bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports-ubuntu.qualcomm.com/ports.ubuntu.com/{SNAP_SHOT_DATE} noble-updates main universe multiverse restricted\""
+        bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports.ubuntu.com/ubuntu-ports noble main universe multiverse restricted\""
+        bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports.ubuntu.com/ubuntu-ports noble-updates main universe multiverse restricted\""
         if self.TECH_DEBIAN_MIRROR:
             bash_command += f" \"deb [arch=arm64 trusted=yes] {self.TECH_DEBIAN_MIRROR} noble main\""
 

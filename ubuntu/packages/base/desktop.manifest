@@ -1317,7 +1317,6 @@ python3-yaml 6.0.1-2build2
 python3-zope.interface 6.1-1build1
 python3.12 3.12.3-1ubuntu0.11
 python3.12-minimal 3.12.3-1ubuntu0.11
-qcom-iot-defaults 1.19
 qrtr-tools 1.0-2ubuntu3
 readline-common 8.2-4build1
 rfkill 2.39.3-9ubuntu6.4

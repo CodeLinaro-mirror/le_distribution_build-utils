@@ -68,7 +68,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Process command line arguments.")
 
     parser.add_argument('--apt-server-config', type=str, required=False,
-                        default="deb [arch=arm64 trusted=yes] http://pkg.qualcomm.com noble/stable main",
+                        default="deb [arch=arm64 trusted=yes] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse",
                         help='APT Server configuration to use')
     parser.add_argument('--mount_dir', type=str, required=False,
                         help='Mount directory for builds (default: <workspace>/build/mount)',
