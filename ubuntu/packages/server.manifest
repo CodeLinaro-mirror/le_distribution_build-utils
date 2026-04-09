@@ -8,15 +8,15 @@
 #
 # Lines starting with '#' are ignored.
 analyzer-tools 1.0.0
-libaosal1 1.0.0
+#libaosal1 1.0.0
 # awe-audio-service 1.0.0
-awe-alsa 1.0.0
-awe-audiolite-osal 1.0.0
-libawe-client 1.0.0
+#awe-alsa 1.0.0
+#awe-audiolite-osal 1.0.0
+#libawe-client 1.0.0
 # libawe-controller 1.0.0
 libbase 1.0.0
 bootkpi-logging 1.0.0
-bt-dlkm 1.0
+#bt-dlkm 1.0
 compute-osal 1.0.2
 compute-resmgr 1.0.1
 compute-ressched 1.0.1
@@ -33,11 +33,11 @@ diagservice 1.0.0
 dsm 1.0.0
 sio 1.0.0
 siosocket 1.0.0
-display-commonsys-intf 1.0.0
-display-intf-headers-dbg 1.0.0
-display-intf-headers 1.0.0
+#display-commonsys-intf 1.0.0
+#display-intf-headers-dbg 1.0.0
+#display-intf-headers 1.0.0
 dsp-firmware-mount 1.0.0
-ecc-err-handler 1.0.2
+ecc-err-handler 1.0.0
 libext4-utils 1.0.0
 libfs-mgr 1.0.1
 glink-service-lrm 1.0.0
@@ -60,7 +60,7 @@ libsoftsku 1.0.0
 libsparse 1.0.1
 libssloader 1.0.0
 libssr-client 1.0.0
-libstd 1.0.2
+libstd 1.0.0
 libtpp 1.0.0
 libtzbsp 1.0.0
 libutils 1.0.1
@@ -86,7 +86,7 @@ tpm 1.0.0
 rpcmem 1.0.2
 safe-iop 1.0.1
 safe-xml-parser 1.0.0
-safegptp 1.0.0
+#safegptp 1.0.0
 safelinux-cfg-modules 1.0.0
 safelinux-dbg-modules 1.0.0
 safelinux-system-cfg 1.0.0
