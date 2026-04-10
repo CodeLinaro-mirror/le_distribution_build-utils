@@ -286,6 +286,7 @@ sudo mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='chroot "$1" usermod -aG sudo qc-ubuntu' \
 --customize-hook='cp {self.cur_file}/01-end0.yaml "$1/etc/netplan/01-end0.yaml"' \
 --customize-hook='echo "PermitRootLogin yes" >> "$1/etc/ssh/sshd_config"' \
+--customize-hook='chroot "$1" depmod -a 6.6.110' \
 --setup-hook='echo /dev/disk/by-partlabel/system / ext4 defaults 0 1 > "$1/etc/fstab"' \
 --arch=arm64 \
 --aptopt='APT::Get::Allow-Downgrades "true";' \

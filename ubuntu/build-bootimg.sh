@@ -486,6 +486,44 @@ EOF
     ./scripts/package/mkdebian --need-source
     debuild --no-lintian --no-tgz-check -us -uc
 }
+
+create_kernel_dlkm_package() {
+    MAKEFILE=${KERNEL_PLATFORM_DIR}/kernel/Makefile
+    export KERNELVERSION=$(awk '/^VERSION =|^PATCHLEVEL =|^SUBLEVEL =/ {print $3}' "$MAKEFILE" | paste -sd '.' -)
+    rm -rf ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm
+    MODPATH=${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/lib/modules/${KERNELVERSION}/updates/
+    mkdir -p ${MODPATH}
+    mkdir -p ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/DEBIAN
+    touch ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/DEBIAN/control
+    chmod 0755 ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/DEBIAN
+    chmod 0755 ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/DEBIAN/control
+    cat <<EOF > ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/DEBIAN/control
+Package: kernel-dlkm
+Section: base
+Version: 6.6.110
+Priority: optional
+Architecture: all
+Maintainer: leiwan <leiwan@autobuild-arm-sh01-lnx.qualcomm.com>
+Homepage: https://www.kernel.org/
+Description: Linux source code package deployed without compilation.
+EOF
+    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/gpu/drm/drm_kms_helper.ko ${MODPATH}
+    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/gpu/drm/drm.ko ${MODPATH}
+    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/phy/qualcomm/phy-qcom-qmp-combo.ko ${MODPATH}
+    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/phy/qualcomm/phy-qcom-snps-eusb2.ko ${MODPATH}
+    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/usb/typec/typec.ko ${MODPATH}
+    mkdir -p ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/etc/modules-load.d/
+    cat <<EOF > ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/etc/modules-load.d/auto-dlkm.conf
+drm
+drm_kms_helper
+phy-qcom-qmp-combo
+phy-qcom-snps-eusb2
+typec
+EOF
+    cd ${WORKSPACE}/kernel/kernel_platform
+    dpkg-deb --build kernel-dlkm
+}
+
 # reoragnize kernel packages
 reorganize_kernel_deb() {
     rm -rf ${WORKSPACE}/debian_packages/oss/linux-qcom/
@@ -493,6 +531,7 @@ reorganize_kernel_deb() {
     cp ${WORKSPACE}/kernel/kernel_platform/linux-qcom-source.deb ${WORKSPACE}/debian_packages/oss/linux-qcom/
     cp ${WORKSPACE}/kernel/kernel_platform/linux-libc-dev*deb ${WORKSPACE}/debian_packages/oss/linux-qcom/
     cp ${WORKSPACE}/kernel/kernel_platform/linux-headers*deb ${WORKSPACE}/debian_packages/oss/linux-qcom/
+    cp ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm*deb ${WORKSPACE}/debian_packages/oss/linux-qcom/
 }
 
 mkdir -p "${OUTPUT_DIR}"
@@ -502,4 +541,5 @@ build_oot_dtbo
 build_bootimg
 fi
 create_kernel_package
+create_kernel_dlkm_package
 reorganize_kernel_deb
