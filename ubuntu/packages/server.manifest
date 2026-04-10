@@ -99,3 +99,6 @@ ssr-rm 1.0.2
 system-core-adbd 1.0.1
 kernel-dlkm 6.6.110
 system-prop 1.0.0
+libgpt 1.0.0
+abctl 1.0.0
+ab-status-updater 1.0.0
