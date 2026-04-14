@@ -507,11 +507,7 @@ Maintainer: leiwan <leiwan@autobuild-arm-sh01-lnx.qualcomm.com>
 Homepage: https://www.kernel.org/
 Description: Linux source code package deployed without compilation.
 EOF
-    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/gpu/drm/drm_kms_helper.ko ${MODPATH}
-    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/gpu/drm/drm.ko ${MODPATH}
-    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/phy/qualcomm/phy-qcom-qmp-combo.ko ${MODPATH}
-    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/phy/qualcomm/phy-qcom-snps-eusb2.ko ${MODPATH}
-    cp ${WORKSPACE}/kernel/kernel_platform/kernel/drivers/usb/typec/typec.ko ${MODPATH}
+    find ${WORKSPACE}/kernel/kernel_platform/kernel/ -type f -name "*.ko" -exec cp -t  ${MODPATH} {} +
     mkdir -p ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/etc/modules-load.d/
     cat <<EOF > ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/etc/modules-load.d/auto-dlkm.conf
 drm
