@@ -254,6 +254,32 @@ except Exception as e:
     logger.error(f"Failed to generate manifest map: {e}")
     MANIFEST_MAP = {}
 
+# Check if prebuilt_HY11 directory exists in workspace root
+prebuilt_hy11_dir = os.path.join(WORKSPACE_DIR, "prebuilt_HY11")
+if os.path.isdir(prebuilt_hy11_dir):
+    logger.info(f"Found prebuilt_HY11 directory at {prebuilt_hy11_dir}. Syncing to {PROP_DEB_OUT_DIR}...")
+
+    # Clear all contents of debian_packages/prop/
+    for item in os.listdir(PROP_DEB_OUT_DIR):
+        item_path = os.path.join(PROP_DEB_OUT_DIR, item)
+        if os.path.isfile(item_path) or os.path.islink(item_path):
+            os.remove(item_path)
+        elif os.path.isdir(item_path):
+            shutil.rmtree(item_path)
+    logger.info(f"Cleared contents of {PROP_DEB_OUT_DIR}")
+
+    # Copy all contents from prebuilt_HY11/ into debian_packages/prop/
+    for item in os.listdir(prebuilt_hy11_dir):
+        src = os.path.join(prebuilt_hy11_dir, item)
+        dst = os.path.join(PROP_DEB_OUT_DIR, item)
+        if os.path.isdir(src):
+            shutil.copytree(src, dst)
+        else:
+            shutil.copy2(src, dst)
+    logger.info(f"Copied contents of {prebuilt_hy11_dir} into {PROP_DEB_OUT_DIR}")
+else:
+    logger.debug(f"prebuilt_HY11 directory not found at {prebuilt_hy11_dir}, skipping sync.")
+
 # Build the kernel if specified
 if IF_BUILD_KERNEL:
     error_during_kernel_build = False
