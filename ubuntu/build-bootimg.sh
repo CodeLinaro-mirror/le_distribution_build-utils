@@ -174,6 +174,7 @@ CONFIG_USB_LIBCOMPOSITE=y
 CONFIG_PINCTRL_SA8797P=y
 CONFIG_PINCTRL_SCMI=y
 CONFIG_MODULE_FORCE_LOAD=y
+CONFIG_IGC=m
 CONFIG_STMMAC_ETH=y
 CONFIG_STMMAC_PLATFORM=y
 CONFIG_AQUANTIA_PHY=y
@@ -413,6 +414,8 @@ build_oot_dtbo() {
     cp -f ${WORKSPACE}/vendor/qcom/opensource/base-devicetree/arch/arm64/boot/dts/qcom/*.dtb "${OUTPUT_DIR}/build-dtb-artifacts/dtb"
     cp -f ${WORKSPACE}/vendor/qcom/opensource/base-devicetree/arch/arm64/boot/dts/qcom/sa8397p-overlay.dtbo "${OUTPUT_DIR}/build-dtb-artifacts/techpack-dtbs"
     cp -f ${WORKSPACE}/vendor/qcom/opensource/base-devicetree/arch/arm64/boot/dts/qcom/sa8797p-overlay.dtbo "${OUTPUT_DIR}/build-dtb-artifacts/techpack-dtbs"
+    cp -f ${WORKSPACE}/vendor/qcom/opensource/base-devicetree/arch/arm64/boot/dts/qcom/qcs8797-iqx-evk-overlay.dtbo "${OUTPUT_DIR}/build-dtb-artifacts/techpack-dtbs"
+    cp -f ${WORKSPACE}/vendor/qcom/proprietary/mm-vfio-devicetree/sa8797p-mm-vfio-iqx.dtbo "${OUTPUT_DIR}/build-dtb-artifacts/techpack-dtbs"
     cp -f ${WORKSPACE}/vendor/qcom/proprietary/mm-vfio-devicetree/sa8797p-mm-vfio.dtbo "${OUTPUT_DIR}/build-dtb-artifacts/techpack-dtbs"
     cp -f ${WORKSPACE}/vendor/qcom/opensource/audiolite/devicetree/*audiolite*.dtbo "${OUTPUT_DIR}/build-dtb-artifacts/techpack-dtbs"
     rm -f "${OUTPUT_DIR}/build-dtb-artifacts/dtb/sa8797p-qvp.dtb"
