@@ -120,6 +120,8 @@ def parse_arguments():
                         help="Prepares sources, does not build", default=False)
     parser.add_argument("--no-abi-check", action="store_true",
                         help="Skip ABI compatibility check", default=False)
+    parser.add_argument('--build-abl', action='store_true', default=False,
+                        help='Build ABL')
     parser.add_argument('--build-full-image', action='store_true', default=False,
                         help='Full build: equivalent to --build-kernel --gen-debians --pack-image')
 
@@ -190,6 +192,7 @@ DEBIAN_INSTALL_DIR = args.debians_path
 
 # Process Flags
 IF_BUILD_KERNEL = args.build_kernel or args.build_full_image
+IF_BUILD_ABL = args.build_abl or args.build_full_image
 IF_GEN_DEBIANS = args.gen_debians or args.build_full_image
 IF_PACK_IMAGE = args.pack_image or args.pack_image_rel or args.build_full_image
 IF_RELEASE_ENABLED = args.pack_image_rel
@@ -281,6 +284,27 @@ if IF_BUILD_KERNEL:
         if error_during_kernel_build:
             logger.critical("Kernel build failed. Exiting.")
             exit(1)
+
+# Build abl if specified
+if IF_BUILD_ABL:
+    error_during_abl_build = False
+
+    logger.info("Running the abl build phase")
+
+    try:
+        os.chdir(BUILD_SCRIPT_DIR)
+        subprocess.run(["./build-edk2.sh"], check=True)
+
+    except Exception as e:
+        logger.critical(f"Exception during abl build : {e}")
+        traceback.print_exc()
+        error_during_abl_build = True
+
+    finally:
+        if error_during_abl_build:
+            logger.critical("ABL build failed. Exiting.")
+            exit(1)
+
 
 if IF_RELEASE_PREP_URL:
     logger.info("Running the release preparation phase")
