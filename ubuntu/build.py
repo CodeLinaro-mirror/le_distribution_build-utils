@@ -212,6 +212,7 @@ KERNEL_DEB_URL = args.kernel_deb_url
 SOURCES_DIRS = [
     # Add more directories to scan for debian packages here, e.g.:
     # os.path.join(WORKSPACE_DIR, "vendor"),
+    os.path.join(WORKSPACE_DIR, "graphics"),
     os.path.join(WORKSPACE_DIR, "system"),
     os.path.join(WORKSPACE_DIR, "vendor", "qcom"),
     os.path.join(WORKSPACE_DIR, "external"),

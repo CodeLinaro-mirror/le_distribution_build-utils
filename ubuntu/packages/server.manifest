@@ -108,3 +108,27 @@ wlan-platform-dlkm 1.0.0
 qcacld32-ll-hmt 1.0.0
 wlan-device-cfg-hmt 1.0.0
 cnss-wlan-load 1.0.0
+## Platform missed
+powercyclemgr 1.0.0
+vmm-lib 1.0
+qc-pm 1.0.0
+#MM framework
+mm-vfio-devicetree 1.0.0
+mm-frameworks 1.0.0
+synx-service 1.0.0
+mm-osal 1.0.0
+planedef 1.0.0
+libaosal 1.0.0
+#GPU
+kgsl 1.0.0
+adreno 1.0.0
+#Display
+owfds 1.0.0
+owfds-ship 1.0.0
+gbm-sa 1.0.0
+#video
+vpu-firmware 1.0.0
+video-driver 1.0.0
+vidc-test-app 1.0.0
+
+
