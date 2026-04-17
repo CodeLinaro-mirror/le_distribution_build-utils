@@ -128,6 +128,7 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/pcie/0007-PCIe_EP_qcom-ep-Add-support-for-SCMI-based-PCIe-EP-for-Nords.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0008-MHI_EP_dmaengine-dw-edma-Add-correct-offsets-for-HDMA-RD-WR.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0001-pci-Add-pcie-module-dependency.patch
+    apply_patch ${downstream_qc_patch_path}/pcie/0009-MHI_RC_bus-mhi-host-pci_generic-Add-support-for-FN990B40-modem.patch
     apply_patch ${downstream_qc_patch_path}/qup/0033-meta-qti-auto-kernel-ccu-Add-Ftrace-support-for-CCU.patch
     apply_patch ${downstream_qc_patch_path}/qup/0034-i2c-qcom-geni-Skip-TX-DMA-TRE-for-I2C-read-operation.patch
     apply_patch ${downstream_qc_patch_path}/qup/0035-i2c-qcom-geni-Add-asynchronous-read-support-for-CCU-.patch
@@ -190,6 +191,15 @@ CONFIG_VFIO_PLATFORM=y
 CONFIG_VFIO_PLATFORM_BASE=y
 CONFIG_QCOM_SOCINFO=y
 CONFIG_NR_CPUS=32
+CONFIG_MHI_BUS=y
+CONFIG_RMNET=y
+CONFIG_QRTR=y
+CONFIG_QRTR_MHI=y
+CONFIG_WWAN=y
+CONFIG_WWAN_CORE=y
+CONFIG_MHI_WWAN_CTRL=y
+CONFIG_MHI_WWAN_MBIM=y
+CONFIG_MHI_BUS_DEBUG=y
 EOF
     base_defconfig=${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_defconfig
     kernel_arch_config="${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto.config  ${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto_debug.config  ${WORKSPACE}/layers/meta-qti-realtime/recipes-kernel/linux/linux-qcom-custom-rt/qcom_rt.cfg  ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/sa8797p-generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/selinux.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/devmem.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/no-earlyramdisk.cfg"
