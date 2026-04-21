@@ -280,7 +280,7 @@ GRUB_DISABLE_RECOVERY="true"' >> {os.path.join(self.MOUNT_DIR, 'etc', 'default',
         log_file = os.path.join(self.TEMP_DIR, f"mmdebstrap_{self.IMAGE_TYPE}_{self.VARIANT}.mmdebstrap.build")
 
         bash_command = f"""
-sudo mmdebstrap --verbose --variant=apt --logfile={log_file} \
+mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='echo root:password | chroot "$1" chpasswd' \
 --customize-hook='echo qc-ubuntu > "$1/etc/hostname"' \
 --customize-hook='echo "127.0.0.1 localhost qc-ubuntu" > "$1/etc/hosts"' \
