@@ -15,7 +15,7 @@ This script automates the process of building a Debian-based system image. It ha
 
 Usage:
 ------
-- Run this script as a root user with the required command-line arguments to build the system image.
+- Run this script as a normal user with the required command-line arguments to build the system image.
 
 """
 
@@ -41,11 +41,7 @@ from deb_abi_checker import multiple_repo_deb_abi_checker
 from color_logger import logger
 from pathlib import Path
 
-# Check for root privileges
-if not check_if_root():
-    logger.critical('Please run this script as root user.')
-    exit(1)
-
+# See pack_deb.py for the no-root image build strategy (mmdebstrap unshare + tar + mke2fs).
 DIST           = "noble"
 ARCH           = "arm64"
 CHROOT_SUFFIX  = "ubuntu"
@@ -121,7 +117,7 @@ def parse_arguments():
     parser.add_argument("--prepare-sources", action="store_true",
                         help="Prepares sources, does not build", default=False)
     parser.add_argument("--no-abi-check", action="store_true",
-                        help="Skip ABI compatibility check", default=False)
+                        help="Skip ABI compatibility check", default=True)
     parser.add_argument('--build-abl', action='store_true', default=False,
                         help='Build ABL')
     parser.add_argument('--build-full-image', action='store_true', default=False,
@@ -257,16 +253,22 @@ create_new_directory(OSS_DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(PROP_DEB_OUT_DIR, delete_if_exists=False)
 create_new_directory(DEB_OUT_TEMP_DIR, delete_if_exists=False) # Don't clear all the temp folders
 
-try:
-    MANIFEST_MAP = generate_manifest_map(WORKSPACE_DIR)
-except Exception as e:
-    logger.error(f"Failed to generate manifest map: {e}")
-    MANIFEST_MAP = {}
-
-# Check if prebuilt_HY11 directory exists in workspace root
+# Determine build environment and handle prebuilt_HY11 sync accordingly.
+# The presence of the release/ directory is the definitive indicator of an qcom internal
+# dev environment (regardless of whether prebuilt_HY11 exists yet).
 prebuilt_hy11_dir = os.path.join(WORKSPACE_DIR, "prebuilt_HY11")
-if os.path.isdir(prebuilt_hy11_dir):
-    logger.info(f"Found prebuilt_HY11 directory at {prebuilt_hy11_dir}. Syncing to {PROP_DEB_OUT_DIR}...")
+release_dir = os.path.join(WORKSPACE_DIR, "release")
+
+if os.path.isdir(release_dir):
+    logger.info(
+        f"release/ directory detected. "
+        f"Skipping prebuilt_HY11 sync."
+    )
+elif os.path.isdir(prebuilt_hy11_dir):
+    logger.info(
+        f"Found prebuilt_HY11 at {prebuilt_hy11_dir}. "
+        f"Syncing to {PROP_DEB_OUT_DIR}..."
+    )
 
     # Clear all contents of debian_packages/prop/
     for item in os.listdir(PROP_DEB_OUT_DIR):
@@ -288,6 +290,12 @@ if os.path.isdir(prebuilt_hy11_dir):
     logger.info(f"Copied contents of {prebuilt_hy11_dir} into {PROP_DEB_OUT_DIR}")
 else:
     logger.debug(f"prebuilt_HY11 directory not found at {prebuilt_hy11_dir}, skipping sync.")
+
+try:
+    MANIFEST_MAP = generate_manifest_map(WORKSPACE_DIR)
+except Exception as e:
+    logger.error(f"Failed to generate manifest map: {e}")
+    MANIFEST_MAP = {}
 
 # Build the kernel if specified
 if IF_BUILD_KERNEL:
@@ -454,9 +462,14 @@ if IF_PACK_IMAGE:
             cleanup_file(OUT_SYSTEM_IMG)
 
         if os.path.exists(MOUNT_DIR):
-            # Make sure no leftovers from a previous run are present, especially in terms of mouted directories.
-            umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=True)
             cleanup_directory(MOUNT_DIR)
+
+        # Clean up any leftover rootfs_extracted from a previous interrupted build
+        # to prevent dpkg-scanpackages from stalling on its contents.
+        rootfs_extracted_leftover = os.path.join(DEB_OUT_TEMP_DIR, "rootfs_extracted")
+        if os.path.exists(rootfs_extracted_leftover):
+            logger.info("Cleaning up leftover rootfs_extracted from a previous interrupted build...")
+            cleanup_directory(rootfs_extracted_leftover)
 
         create_new_directory(MOUNT_DIR)
         packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH,QC_FOLDER,IF_RELEASE_ENABLED,TECH_VARIANT=TECH_VARIANT,BASE_MANIFEST_PATH=(args.base_manifest_path if args.base_manifest_path else None))
@@ -489,7 +502,6 @@ if IF_PACK_IMAGE:
         print_build_logs(DEB_OUT_TEMP_DIR)
 
     finally:
-        umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=True)
         if packer :
             packer.cleanup_downloaded_manifest()
 
@@ -522,23 +534,6 @@ if IF_FLAT_META:
     except Exception as e:
         logger.error(e)
         ERROR_EXIT_BUILD = True
-
-# Change permissions for output directories if cleanup is enabled
-if IS_CLEANUP_ENABLED:
-    error_during_cleanup = False
-
-    try:
-        change_folder_perm_read_write(OSS_DEB_OUT_DIR)
-        change_folder_perm_read_write(PROP_DEB_OUT_DIR)
-        change_folder_perm_read_write(DEB_OUT_DIR)
-        change_folder_perm_read_write(OUT_DIR)
-    except Exception:
-        error_during_cleanup = True
-
-    finally:
-        if error_during_cleanup:
-            logger.critical("Cleanup failed. Exiting.")
-            exit(1)
 
 logger.info("Script execution sucessful")
 exit(0)

@@ -470,6 +470,7 @@ create_kernel_package() {
     rm -rf  ${WORKSPACE}/kernel/kernel_platform/source
     mkdir -p ${WORKSPACE}/kernel/kernel_platform/source/usr/src
     cp -r ${WORKSPACE}/kernel/kernel_platform/kernel/ ${WORKSPACE}/kernel/kernel_platform/source/usr/src
+    chmod -R a+rX ${WORKSPACE}/kernel/kernel_platform/source/usr/src/kernel/
     mkdir ${WORKSPACE}/kernel/kernel_platform/source/DEBIAN
     touch ${WORKSPACE}/kernel/kernel_platform/source/DEBIAN/control
     chmod 0755 ${WORKSPACE}/kernel/kernel_platform/source/DEBIAN
@@ -485,7 +486,7 @@ Homepage: https://www.kernel.org/
 Description: Linux source code package deployed without compilation.
 EOF
     cd ${WORKSPACE}/kernel/kernel_platform
-    dpkg-deb --build source
+    fakeroot dpkg-deb --build source
     mv source.deb linux-qcom-source.deb
 
     cd ${srctree}
@@ -523,7 +524,7 @@ phy-qcom-snps-eusb2
 typec
 EOF
     cd ${WORKSPACE}/kernel/kernel_platform
-    dpkg-deb --build kernel-dlkm
+    fakeroot dpkg-deb --build kernel-dlkm
 }
 
 # reoragnize kernel packages

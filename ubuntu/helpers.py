@@ -80,12 +80,8 @@ def extract_vmlinux(deb_dir, deb_file_regex, vmlinux_filename, out_dir):
 
     Raises:
     -------
-    - SystemExit: If not run as root, if no matching .deb files found, or if errors occur.
+    - Exception: If no matching .deb files found, or if errors occur during extraction.
     """
-    if not check_if_root():
-        logger.error('Please run this script as root user.')
-        raise Exception('Root privileges required')
-
     vmlinux_path = os.path.join(out_dir, vmlinux_filename)
     if os.path.exists(vmlinux_path):
         logger.info(f"Removing existing vmlinux at {vmlinux_path}")
@@ -155,7 +151,7 @@ def parse_debs_manifest(manifest_path):
         print(f"Manifest file {manifest_path} not found.")
         return None
 
-def run_command(command, check=True, get_object=False, cwd=None):
+def run_command(command, check=True, get_object=False, cwd=None, env=None):
     """
     Executes a shell command and returns the output, logging any errors.
 
@@ -178,7 +174,7 @@ def run_command(command, check=True, get_object=False, cwd=None):
     logger.debug(f'Running command: {command}')
 
     try:
-        result = subprocess.run(command, shell=True, check=check, capture_output=True, text=True, cwd=cwd)
+        result = subprocess.run(command, shell=True, check=check, capture_output=True, text=True, cwd=cwd, env=env)
 
     except subprocess.CalledProcessError as e:
         logger.error(f"Command failed with return value: {e.returncode}")
@@ -240,9 +236,32 @@ def cleanup_directory(dirname):
     -------
     - Exception: If an error occurs while trying to remove the directory.
     """
+    import subprocess as _sp
     try:
         if os.path.exists(dirname):
-            shutil.rmtree(dirname)
+            try:
+                shutil.rmtree(dirname)
+            except PermissionError:
+                logger.debug(
+                    f"shutil.rmtree failed on {dirname} (mapped UIDs), "
+                    "falling back to chmod+rm -rf"
+                )
+                _sp.run(
+                    f"chmod -R a+rwX {dirname} 2>/dev/null; "
+                    f"find {dirname} -type d -exec chmod a+rwx {{}} \\; 2>/dev/null; "
+                    f"true",
+                    shell=True
+                )
+                result = _sp.run(
+                    ["rm", "-rf", dirname],
+                    capture_output=True, text=True
+                )
+                if result.returncode != 0:
+                    logger.warning(
+                        f"Could not fully remove {dirname} (some files owned by "
+                        "subuid-mapped UIDs). Leftover files will be cleaned up "
+                        "by the mmdebstrap customize-hook on the next run."
+                    )
     except Exception as e:
         logger.error(f"Error cleaning directory {dirname}: {e}")
         raise Exception(e)
@@ -287,8 +306,7 @@ def create_new_directory(dirname, delete_if_exists=True):
             # Check if the directory exists, if so delete it
             if delete_if_exists:
                 cleanup_directory(dirname)
-        # Create the destination directory
-        os.makedirs(dirname, exist_ok=not delete_if_exists)
+        os.makedirs(dirname, exist_ok=True)
     except Exception as e:
         logger.error(f"Error creating directory {dirname}: {e}")
         exit(1)
@@ -320,106 +338,6 @@ def create_new_file(filepath, delete_if_exists=True) -> str:
     except Exception as e:
         logger.error(f"Error creating file {filepath}: {e}")
         exit(1)
-
-def mount_img(IMG_PATH, MOUNT_DIR, MOUNT_HOST_FS=False, MOUNT_IMG=True):
-    """
-    Mounts an image file to a specified directory, with optional host filesystem mounts.
-
-    Args:
-    -----
-    - IMG_PATH (str): The path to the image file to mount.
-    - MOUNT_DIR (str): The directory to mount the image to.
-    - MOUNT_HOST_FS (bool): If True, mounts the host filesystem directories.
-    - MOUNT_IMG (bool): If True, mounts the image file.
-    """
-    if MOUNT_IMG:
-        create_new_directory(MOUNT_DIR)
-        run_command(f"mount {IMG_PATH} {MOUNT_DIR}")
-    if MOUNT_HOST_FS:
-        for direc in HOST_FS_MOUNT:
-            run_command(f"mount --bind /{direc} {MOUNT_DIR}/{direc}")
-
-def umount_dir(MOUNT_DIR, UMOUNT_HOST_FS=False):
-    """
-    Unmounts a specified directory and optionally unmounts host filesystem mounts.
-
-    If the directory is not mounted, (ie, return code 32 from umount) then it is
-    silently ignored.
-
-    Args:
-    -----
-    - MOUNT_DIR (str): The directory to unmount.
-    - UMOUNT_HOST_FS (bool): If True, unmounts the host filesystem directories.
-    """
-
-    logger.debug(f"umount dir {MOUNT_DIR}")
-
-    if UMOUNT_HOST_FS:
-        for direc in HOST_FS_MOUNT:
-            result = subprocess.run(f"umount -l {MOUNT_DIR}/{direc}",
-                                    shell=True, capture_output=True, text=True)
-
-            if result.returncode != 0 and result.returncode != 32:
-                logger.error(f"Failed to unmount {MOUNT_DIR}/{direc}: {result.stderr}")
-
-    result = subprocess.run(f"umount -l {MOUNT_DIR}",
-                            shell=True, capture_output=True, text=True)
-    if result.returncode != 0 and result.returncode != 32:
-        logger.error(f"Failed to unmount {MOUNT_DIR}: {result.stderr}")
-
-def change_folder_perm_read_write(DIR):
-    """
-    Changes permissions of a directory and its contents to allow read and write access.
-
-    Args:
-    -----
-    - DIR (str): The path to the directory whose permissions are to be changed.
-
-    Raises:
-    -------
-    - Exception: If an error occurs while changing permissions.
-    """
-    try:
-        # Change permissions for the root folder itself
-        current_permissions = os.stat(DIR).st_mode
-        new_permissions = current_permissions
-
-        if current_permissions & stat.S_IWUSR:
-            new_permissions |= stat.S_IWOTH
-
-        if current_permissions & stat.S_IXUSR:
-            new_permissions |= stat.S_IXOTH
-
-        os.chmod(DIR, new_permissions)
-
-        for root, dirs, files in os.walk(DIR):
-            for dir_ in dirs:
-                dir_path = os.path.join(root, dir_)
-                current_permissions = os.stat(dir_path).st_mode
-                new_permissions = current_permissions
-
-                if current_permissions & stat.S_IWUSR:
-                    new_permissions |= stat.S_IWOTH
-                if current_permissions & stat.S_IXUSR:
-                    new_permissions |= stat.S_IXOTH
-
-                os.chmod(dir_path, new_permissions)
-
-            for file in files:
-                file_path = os.path.join(root, file)
-                current_permissions = os.stat(file_path).st_mode
-                new_permissions = current_permissions
-
-                if current_permissions & stat.S_IWUSR:
-                    new_permissions |= stat.S_IWOTH
-                if current_permissions & stat.S_IXUSR:
-                    new_permissions |= stat.S_IXOTH
-
-                os.chmod(file_path, new_permissions)
-
-        logger.info(f"Permissions updated conditionally for all folders and files in {DIR}.")
-    except Exception as e:
-        logger.error(f"Error while changing permissions: {e}")
 
 def print_build_logs(directory):
     """

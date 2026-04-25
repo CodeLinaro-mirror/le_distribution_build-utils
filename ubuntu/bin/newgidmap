@@ -1,0 +1,14 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+# Wrapper for newgidmap: maps GID 0 inside the user namespace to the real user's GID.
+# This allows mmdebstrap --mode=unshare to work without sudo.
+# Args: PID NSID HOSTID RANGE [NSID HOSTID RANGE ...]
+PID="$1"; shift
+REAL_GID=$(id -g)
+NSID1="$1"; HOSTID1="$2"; RANGE1="$3"; shift 3
+if [ "$NSID1" = "0" ] && [ "$HOSTID1" != "$REAL_GID" ]; then
+    exec /usr/bin/newgidmap "$PID" 0 "$REAL_GID" 1 1 "$HOSTID1" "$RANGE1" "$@"
+else
+    exec /usr/bin/newgidmap "$PID" "$NSID1" "$HOSTID1" "$RANGE1" "$@"
+fi

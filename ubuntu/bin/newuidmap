@@ -1,0 +1,14 @@
+#!/bin/bash
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+# Wrapper for newuidmap: maps UID 0 inside the user namespace to the real user's UID.
+# This allows mmdebstrap --mode=unshare to work without sudo.
+# Args: PID NSID HOSTID RANGE [NSID HOSTID RANGE ...]
+PID="$1"; shift
+REAL_UID=$(id -u)
+NSID1="$1"; HOSTID1="$2"; RANGE1="$3"; shift 3
+if [ "$NSID1" = "0" ] && [ "$HOSTID1" != "$REAL_UID" ]; then
+    exec /usr/bin/newuidmap "$PID" 0 "$REAL_UID" 1 1 "$HOSTID1" "$RANGE1" "$@"
+else
+    exec /usr/bin/newuidmap "$PID" "$NSID1" "$HOSTID1" "$RANGE1" "$@"
+fi
