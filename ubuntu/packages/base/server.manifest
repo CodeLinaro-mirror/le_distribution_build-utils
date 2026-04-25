@@ -73,10 +73,6 @@ ed 1.20.1-1
 efibootmgr 18-1build2
 eject 2.39.3-9ubuntu6.4
 ethtool 1:6.7-1build1
-net-tools 2.10-0.1ubuntu4
-udhcpd 1:1.36.1-6ubuntu3.1
-udhcpc 1:1.36.1-6ubuntu3.1
-isc-dhcp-server 4.4.3-P1-2ubuntu2
 fdisk 2.39.3-9ubuntu6.4
 file 1:5.45-3build1
 finalrd 9build1

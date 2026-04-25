@@ -104,7 +104,3 @@ qirp-sdk 3.0.0
 libgpt 1.0.0
 abctl 1.0.0
 ab-status-updater 1.0.0
-wlan-platform-dlkm 1.0.0
-qcacld32-ll-hmt 1.0.0
-wlan-device-cfg-hmt 1.0.0
-cnss-wlan-load 1.0.0

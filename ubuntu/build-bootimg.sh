@@ -127,7 +127,6 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/pcie/0005-MHI_RC_bus-mhi-host-pci_generic-Add-supoprt-for-SA8797P.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0007-PCIe_EP_qcom-ep-Add-support-for-SCMI-based-PCIe-EP-for-Nords.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0008-MHI_EP_dmaengine-dw-edma-Add-correct-offsets-for-HDMA-RD-WR.patch
-    apply_patch ${downstream_qc_patch_path}/pcie/0001-pci-Add-pcie-module-dependency.patch
     apply_patch ${downstream_qc_patch_path}/qup/0033-meta-qti-auto-kernel-ccu-Add-Ftrace-support-for-CCU.patch
     apply_patch ${downstream_qc_patch_path}/qup/0034-i2c-qcom-geni-Skip-TX-DMA-TRE-for-I2C-read-operation.patch
     apply_patch ${downstream_qc_patch_path}/qup/0035-i2c-qcom-geni-Add-asynchronous-read-support-for-CCU-.patch
@@ -452,7 +451,7 @@ build_bootimg() {
         --pagesize 4096 \
         --base 0x80000000 \
         --ramdisk_offset 0x0 \
-        --cmdline ' rootwait console=ttyMSM0,115200,n8 firmware_class.path=/firmware/vm/boot systemd.gpt_auto=0 cgroup.memory=nokmem,nosocket qcom_scm.download_mode=1 page_owner=on rcupdate.rcu_expedited=1 rcu_nocbs=0-17 rcupdate.rcu_normal_after_boot=0 fsck.repair=yes systemd.service_watchdogs=0 driver_async_probe=scmi-hwmon androidboot.slot_suffix=_a root=PARTLABEL=system_a modprobe.blacklist=dm-multipath systemd.machine-id=512cec5b6c9547259d2c6ff2baf84f7e net.ifnames=0 biosdevname=0' \
+        --cmdline ' rootwait console=ttyMSM0,115200,n8 firmware_class.path=/firmware/vm/boot systemd.gpt_auto=0 cgroup.memory=nokmem,nosocket qcom_scm.download_mode=1 page_owner=on rcupdate.rcu_expedited=1 rcu_nocbs=0-17 rcupdate.rcu_normal_after_boot=0 fsck.repair=yes systemd.service_watchdogs=0 driver_async_probe=scmi-hwmon androidboot.slot_suffix=_a root=PARTLABEL=system_a modprobe.blacklist=dm-multipath systemd.machine-id=512cec5b6c9547259d2c6ff2baf84f7e' \
         --output  ${OUTPUT_DIR}/boot.img
 }
 # create kernal package manually, Depends on kernel build
