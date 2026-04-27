@@ -265,6 +265,15 @@ class PackagePacker:
         -------
         - Exception: If there is an error during the image building process.
         """
+        ros2_apt_source_deb = None
+        if self.TECH_VARIANT == "ros" and self.TECH_DEBIAN_MIRROR:
+            try:
+                ros2_apt_source_deb = download_ros2_apt_source_deb(self.TEMP_DIR, UBUNTU_DIST)
+                logger.info(f"ros2-apt-source downloaded to {ros2_apt_source_deb}")
+            except Exception as e:
+                logger.warning(f"Failed to download ros2-apt-source: {e}")
+                logger.warning("Will use trusted=yes for ROS repository instead")
+
         log_file = os.path.join(self.TEMP_DIR, f"mmdebstrap_{self.IMAGE_TYPE}_{self.VARIANT}.mmdebstrap.build")
 
         rootfs_tar = os.path.join(self.TEMP_DIR, "rootfs_for_img.tar")
@@ -288,10 +297,45 @@ mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='[ -d "$1/lib/modules/6.6.110" ] && chroot "$1" depmod -a 6.6.110 || true' \
 --customize-hook='rm -rf "$1/var/cache/man" "$1/var/lib/landscape" "$1/var/log/landscape" 2>/dev/null || true' \
 --customize-hook='find "$1/home" -mindepth 1 -maxdepth 1 -exec rm -rf {{}} + 2>/dev/null || true' \
---customize-hook='tar -C "$1" --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./run -cf {rootfs_tar} .' \
 --setup-hook='rm -rf "$1/var/lib/apt/lists" "$1/var/cache/apt" "$1/var/cache/man" "$1/var/lib/landscape" "$1/var/log/landscape" "$1/home" 2>/dev/null; mkdir -p "$1/var/lib/apt/lists/partial" "$1/var/cache/apt" "$1/home"; true' \
 --setup-hook='echo /dev/disk/by-partlabel/system / ext4 defaults 0 1 > "$1/etc/fstab"' \
---arch=arm64 \
+"""
+
+        # If ros2-apt-source was installed via essential-hook, its postinst writes
+        # /etc/apt/sources.list.d/ros2.sources (signed-by key). mmdebstrap also injected
+        # the same URL with trusted=yes into sources.list. APT 2.7+ rejects duplicate
+        # sources with conflicting Trusted settings. Remove the mmdebstrap-injected line
+        # once ros2-apt-source is confirmed present.
+        if self.TECH_DEBIAN_MIRROR:
+            mirror_host = self.TECH_DEBIAN_MIRROR.split('//')[1].split('/')[0]
+            sed_host = mirror_host.replace('.', '\\.')
+            bash_command += (
+                f"--customize-hook='"
+                f"if [ -e \"$1/usr/share/ros-apt-source/ros2.sources\" ]; then "
+                f"sed -i \"/{sed_host}/d\" \"$1/etc/apt/sources.list\" 2>/dev/null; "
+                f"fi' \\\n"
+            )
+
+        # Install ros2-apt-source via --essential-hook. This hook runs after essential
+        # packages (dpkg/apt) are written but before the main --include installation phase,
+        # so the ROS apt source is registered in time for ros-* packages in --include.
+        if ros2_apt_source_deb:
+            deb_basename = os.path.basename(ros2_apt_source_deb)
+            # Use || so that any failure in the install/update chain is non-fatal:
+            # --include packages are already resolved from TECH_DEBIAN_MIRROR; this
+            # hook only registers ros2-apt-source in the final image's dpkg database.
+            # The cleanup (rm -f) runs unconditionally via ';' regardless of outcome.
+            bash_command += (
+                f"--essential-hook='cp {ros2_apt_source_deb} \"$1/tmp/{deb_basename}\""
+                f" && chroot \"$1\" dpkg -i /tmp/{deb_basename}"
+                f" || echo \"WARNING: ros2-apt-source hook failed, continuing\""
+                f"; rm -f \"$1/tmp/{deb_basename}\"' \\\n"
+            )
+
+        # tar hook must be the last customize-hook (after ros2 hooks) to capture the final rootfs
+        bash_command += f"--customize-hook='tar -C \"$1\" --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./run -cf {rootfs_tar} .' \\\n"
+
+        bash_command += f"""--arch=arm64 \
 --aptopt='APT::Get::Allow-Downgrades "true";' \
 --include={self.get_deb_list()} \
 noble \
@@ -313,9 +357,16 @@ noble \
         bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports.ubuntu.com/ubuntu-ports noble main universe multiverse restricted\""
         bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports.ubuntu.com/ubuntu-ports noble-updates main universe multiverse restricted\""
         if self.TECH_DEBIAN_MIRROR:
+            # TECH_DEBIAN_MIRROR is the primary source for --include ROS packages.
+            # ros2-apt-source (installed via essential-hook) only places files under
+            # /usr/share/ and does NOT symlink into /etc/apt/sources.list.d/, so apt
+            # inside mmdebstrap never discovers it. This positional arg is therefore
+            # the only way mmdebstrap can resolve ros-* packages during --include.
             bash_command += f" \"deb [arch=arm64 trusted=yes] {self.TECH_DEBIAN_MIRROR} noble main\""
 
         out = run_command_for_result(bash_command)
+        if ros2_apt_source_deb and os.path.exists(ros2_apt_source_deb):
+            os.unlink(ros2_apt_source_deb)
         if out['returncode'] != 0:
             raise Exception(f"Error building image: {out['output']}")
         else:
