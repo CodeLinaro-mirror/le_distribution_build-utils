@@ -16,6 +16,8 @@ import shutil
 import logging
 import subprocess
 import glob
+import json
+import re
 import requests
 from pathlib import Path
 from git import Repo
@@ -551,3 +553,57 @@ def resolve_manifest_path(manifest_path, workspace, IMAGE_TYPE):
             return abs_manifest
         else:
             raise FileNotFoundError(f"Manifest file not found: {abs_manifest}")
+
+def download_ros2_apt_source_deb(dest_dir: str, distro: str) -> str:
+    """
+    Downloads the latest ros2-apt-source .deb from GitHub Releases.
+
+    Args:
+    -----
+    - dest_dir (str): Directory to download the .deb file into.
+    - distro (str): Ubuntu distro codename (e.g. "noble").
+
+    Returns:
+    --------
+    - str: Full path to the downloaded .deb file.
+
+    Raises:
+    -------
+    - RuntimeError: If the GitHub API request or download fails.
+    - ValueError: If the version string returned by the API is unexpected.
+    """
+    _FALLBACK_ROS_APT_VERSION = "1.2.0"
+    api_result = subprocess.run(
+        ["curl", "-sL",
+         "https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest"],
+        capture_output=True, text=True, timeout=30,
+    )
+    ros_apt_version = _FALLBACK_ROS_APT_VERSION
+    if api_result.returncode != 0:
+        logger.warning(f"GitHub API request failed, using fallback version {_FALLBACK_ROS_APT_VERSION}: {api_result.stderr}")
+    else:
+        try:
+            tag = json.loads(api_result.stdout).get("tag_name", "").strip()
+        except json.JSONDecodeError:
+            tag = ""
+        if re.match(r'^[\w.\-]+$', tag):
+            ros_apt_version = tag
+        else:
+            logger.warning(f"Unexpected version string from GitHub API: {tag!r}, using fallback version {_FALLBACK_ROS_APT_VERSION}")
+
+    deb_name = f"ros2-apt-source_{ros_apt_version}.{distro}_all.deb"
+    deb_url = (
+        "https://github.com/ros-infrastructure/ros-apt-source/releases/download"
+        f"/{ros_apt_version}/{deb_name}"
+    )
+    fd, deb_path = tempfile.mkstemp(suffix=f"_{deb_name}", dir=dest_dir)
+    os.close(fd)
+    dl_result = subprocess.run(
+        ["curl", "-fLSs", "--retry", "3", "-o", deb_path, deb_url],
+        capture_output=True, text=True, timeout=120,
+    )
+    if dl_result.returncode != 0:
+        os.unlink(deb_path)
+        raise RuntimeError(f"Failed to download {deb_url}: {dl_result.stderr}")
+
+    return deb_path

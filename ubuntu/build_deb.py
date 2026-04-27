@@ -13,11 +13,12 @@ import threading
 import argparse
 import importlib.util
 import re
+import tempfile
 from pathlib import Path
 from queue import Queue
 from collections import defaultdict, deque
 from constants import *
-from helpers import run_command, check_and_append_line_in_file, create_new_directory, build_deb_package_gz, run_command_for_result, print_build_logs
+from helpers import run_command, check_and_append_line_in_file, create_new_directory, build_deb_package_gz, run_command_for_result, print_build_logs, download_ros2_apt_source_deb
 from deb_organize import search_manifest_map_for_path
 from color_logger import logger
 
@@ -78,6 +79,60 @@ class PackageBuilder:
         self.packages = {}
         self.generate_schroot_config()
 
+    def _install_ros2_apt_source_in_chroot(self):
+        """
+        Installs ros2-apt-source in the chroot using the official .deb package.
+
+        Downloads the latest ros2-apt-source release from GitHub and installs it
+        with dpkg inside the chroot. This sets up the ROS apt source and GPG key
+        in one step, replacing the old manual ros.key approach.
+
+        Skips silently if already installed. On any failure logs a warning and
+        returns; build_package() will fall back to --extra-repository trusted=yes.
+        """
+        chroot_path = f"{self.CHROOT_DIR}/{self.CHROOT_NAME}"
+        ros_apt_source_file = os.path.join(
+            chroot_path, "usr", "share", "ros-apt-source", "ros2.sources"
+        )
+
+        if os.path.exists(ros_apt_source_file):
+            logger.info("ros2-apt-source already installed in chroot, skipping.")
+            return
+
+        logger.info("Installing ros2-apt-source in chroot environment...")
+        try:
+            tmp_deb_path = download_ros2_apt_source_deb(tempfile.gettempdir(), self.DIST)
+            deb_name = os.path.basename(tmp_deb_path)
+            chroot_deb = os.path.join(chroot_path, "tmp", deb_name)
+            try:
+                subprocess.run(["cp", tmp_deb_path, chroot_deb], check=True)
+                subprocess.run(["chmod", "644", chroot_deb], check=True)
+
+                install_result = subprocess.run(
+                    ["chroot", chroot_path, "dpkg", "-i", f"/tmp/{deb_name}"],
+                    capture_output=True, text=True,
+                )
+
+                if install_result.returncode != 0:
+                    raise RuntimeError(f"dpkg -i failed: {install_result.stderr}")
+
+                update_result = subprocess.run(
+                    ["chroot", chroot_path, "apt-get", "update", "-qq"],
+                    capture_output=True, text=True,
+                )
+                if update_result.returncode != 0:
+                    logger.warning(f"apt-get update after ros2-apt-source install failed: {update_result.stderr}")
+
+                logger.info(f"ros2-apt-source installed successfully in chroot")
+            finally:
+                if os.path.exists(tmp_deb_path):
+                    os.unlink(tmp_deb_path)
+                if os.path.exists(chroot_deb):
+                    os.unlink(chroot_deb)
+        except Exception as e:
+            logger.warning(f"Failed to install ros2-apt-source in chroot: {e}")
+            logger.warning("Will use trusted=yes for ROS repository instead")
+
     def generate_schroot_config(self):
         """
         Generates the schroot configuration for the specified chroot environment.
@@ -94,6 +149,10 @@ class PackageBuilder:
 
         if result.returncode == 0:
             logger.info(f"Schroot container {self.CHROOT_NAME} already exists. Skipping creation.")
+            # Even for an existing schroot, ensure ros2-apt-source is installed when needed.
+            # This handles schroots created before this code was introduced.
+            if self.TECH_VARIANT == "ros" and self.TECH_DEBIAN_MIRROR:
+                self._install_ros2_apt_source_in_chroot()
             return
 
         logger.warning(f"Schroot container '{self.CHROOT_NAME}' does not exist, creating it for the first time.")
@@ -113,11 +172,16 @@ class PackageBuilder:
         logger.debug(f"Creating schroot environment with command: {cmd}")
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
-        subprocess.run(["chroot", f"{self.CHROOT_DIR}/{self.CHROOT_NAME}", "bash", "-c", f"sed -i 's|{self.DEBIAN_MIRROR}|[trusted=yes] {self.DEBIAN_MIRROR}|' /etc/apt/sources.list"]) 
         if result.returncode != 0:
             raise Exception(f"Error creating schroot environment: {result.stderr}")
-        else:
-            logger.info(f"Schroot environment {self.CHROOT_NAME} created successfully.")
+
+        # Install ros2-apt-source in chroot if using ROS (official method).
+        if self.TECH_VARIANT == "ros" and self.TECH_DEBIAN_MIRROR:
+            self._install_ros2_apt_source_in_chroot()
+
+        subprocess.run(["chroot", f"{self.CHROOT_DIR}/{self.CHROOT_NAME}", "bash", "-c", f"sed -i 's|{self.DEBIAN_MIRROR}|[trusted=yes] {self.DEBIAN_MIRROR}|' /etc/apt/sources.list"])
+
+        logger.info(f"Schroot environment {self.CHROOT_NAME} created successfully.")
 
     def load_packages(self):
         """Load package metadata from build_config.py and fetch dependencies from control files."""
@@ -395,8 +459,19 @@ class PackageBuilder:
             for config in self.APT_SERVER_CONFIG:
                 if config.strip():
                     cmd += f" --extra-repository=\"{config.strip()}\""
+
+        # Add ROS repository only if the chroot does not already have ros2-apt-source installed.
+        # ros2-apt-source installs /usr/share/ros-apt-source/ros2.sources (and symlinks it into
+        # sources.list.d). Adding the same URL again via --extra-repository causes APT to error
+        # with "Conflicting values set for option Trusted".
         if self.TECH_DEBIAN_MIRROR:
-            cmd += f" --extra-repository=\"deb [arch=arm64 trusted=yes] {self.TECH_DEBIAN_MIRROR} noble main\"" # Add ROS snapshot repository
+            chroot_path = f"{self.CHROOT_DIR}/{self.CHROOT_NAME}"
+            ros_apt_source_file = os.path.join(chroot_path, "usr", "share", "ros-apt-source", "ros2.sources")
+            if os.path.exists(ros_apt_source_file):
+                logger.debug("ros2-apt-source already installed in chroot, skipping --extra-repository")
+            else:
+                cmd += f" --extra-repository=\"deb [arch=arm64 trusted=yes] {self.TECH_DEBIAN_MIRROR} noble main\""
+                logger.debug("Using trusted=yes for ROS repository (ros2-apt-source not installed in chroot)")
 
         # Resolve directory symlinks in repo_path so that dpkg-source includes
         # the actual content in the source tarball (symlink targets would be
