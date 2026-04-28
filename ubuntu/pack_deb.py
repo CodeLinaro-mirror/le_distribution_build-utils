@@ -297,6 +297,8 @@ mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='[ -d "$1/lib/modules/6.6.110" ] && chroot "$1" depmod -a 6.6.110 || true' \
 --customize-hook='rm -rf "$1/var/cache/man" "$1/var/lib/landscape" "$1/var/log/landscape" 2>/dev/null || true' \
 --customize-hook='find "$1/home" -mindepth 1 -maxdepth 1 -exec rm -rf {{}} + 2>/dev/null || true' \
+--customize-hook='find "$1" \\( -path "$1/home" -o -path "$1/root" -o -path "$1/tmp" -o -path "$1/run" -o -path "$1/proc" -o -path "$1/sys" -o -path "$1/dev" \\) -prune -o -type d -not -perm -o+x -print0 | xargs -0 -r chmod o+rx' \
+--customize-hook='tar -C "$1" --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./run -cf {rootfs_tar} .' \
 --setup-hook='rm -rf "$1/var/lib/apt/lists" "$1/var/cache/apt" "$1/var/cache/man" "$1/var/lib/landscape" "$1/var/log/landscape" "$1/home" 2>/dev/null; mkdir -p "$1/var/lib/apt/lists/partial" "$1/var/cache/apt" "$1/home"; true' \
 --setup-hook='echo /dev/disk/by-partlabel/system / ext4 defaults 0 1 > "$1/etc/fstab"' \
 """
@@ -372,14 +374,13 @@ noble \
         else:
             logger.info("mmdebstrap finished successfully .")
 
-        # Extract tar outside the namespace (re-owns all files to the real user),
-        # then create the ext4 image with mke2fs -d.
         if not os.path.exists(rootfs_tar):
             raise Exception(f"Rootfs tar not found: {rootfs_tar}")
         rootfs_extract_dir = os.path.join(self.TEMP_DIR, "rootfs_extracted")
+        fakeroot_db = os.path.join(self.TEMP_DIR, "fakeroot.db")
         logger.info(f"Extracting rootfs tar to: {rootfs_extract_dir}")
         create_new_directory(rootfs_extract_dir)
-        run_command(f"tar -C {rootfs_extract_dir} --numeric-owner -xf {rootfs_tar}")
+        run_command(f"fakeroot -s {fakeroot_db} tar -C {rootfs_extract_dir} --numeric-owner -xf {rootfs_tar}")
         cleanup_file(rootfs_tar)
 
         for essential_dir in ["proc", "sys", "dev", "run"]:
@@ -389,8 +390,14 @@ noble \
             f"find {rootfs_extract_dir} -type d ! -perm -u+r -exec chmod u+rx {{}} \\;",
             check=False
         )
+        run_command(
+            f"find {rootfs_extract_dir}/bin {rootfs_extract_dir}/sbin {rootfs_extract_dir}/usr/bin "
+            f"-type f -perm /111 ! -perm -o+x -exec chmod o+x {{}} \\;",
+            check=False
+        )
         logger.info(f"Creating ext4 image from rootfs directory: {rootfs_extract_dir}")
-        run_command(f"mke2fs -t ext4 -F -U $(uuidgen) -d {rootfs_extract_dir} {self.OUT_SYSTEM_IMG} {img_blocks}")
+        run_command(f"fakeroot -i {fakeroot_db} mke2fs -t ext4 -F -U $(uuidgen) -d {rootfs_extract_dir} {self.OUT_SYSTEM_IMG} {img_blocks}")
+        cleanup_file(fakeroot_db)
         cleanup_directory(rootfs_extract_dir)
         logger.info(f"ext4 image created: {self.OUT_SYSTEM_IMG}")
 
