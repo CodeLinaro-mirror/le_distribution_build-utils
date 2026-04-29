@@ -108,6 +108,8 @@ wlan-platform-dlkm 1.0.0
 qcacld32-ll-hmt 1.0.0
 wlan-device-cfg-hmt 1.0.0
 cnss-wlan-load 1.0.0
+wpasupplicant 2.12
+hostapd 2.12
 ## Platform missed
 powercyclemgr 1.0.0
 vmm-lib 1.0
