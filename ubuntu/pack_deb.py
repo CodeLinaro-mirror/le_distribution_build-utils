@@ -295,6 +295,7 @@ mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='cp {self.cur_file}/01-end0.yaml "$1/etc/netplan/01-end0.yaml"' \
 --customize-hook='echo "PermitRootLogin yes" >> "$1/etc/ssh/sshd_config"' \
 --customize-hook='[ -d "$1/lib/modules/6.6.110" ] && chroot "$1" depmod -a 6.6.110 || true' \
+--customize-hook='printf "Types: deb\nURIs: http://ports.ubuntu.com/ubuntu-ports\nSuites: noble noble-updates\nComponents: main restricted universe multiverse\nArchitectures: arm64\nTrusted: yes\n" > "$1/etc/apt/sources.list.d/ubuntu.sources" && printf "# This file is intentionally empty. See sources.list.d/ubuntu.sources\n" > "$1/etc/apt/sources.list"' \
 --customize-hook='rm -rf "$1/var/cache/man" "$1/var/lib/landscape" "$1/var/log/landscape" 2>/dev/null || true' \
 --customize-hook='find "$1/home" -mindepth 1 -maxdepth 1 -exec rm -rf {{}} + 2>/dev/null || true' \
 --customize-hook='find "$1" \\( -path "$1/home" -o -path "$1/root" -o -path "$1/tmp" -o -path "$1/run" -o -path "$1/proc" -o -path "$1/sys" -o -path "$1/dev" \\) -prune -o -type d -not -perm -o+x -print0 | xargs -0 -r chmod o+rx' \
