@@ -14,6 +14,9 @@ import argparse
 import importlib.util
 import re
 import tempfile
+import hashlib
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 from queue import Queue
 from collections import defaultdict, deque
@@ -38,7 +41,7 @@ class PackageBuilder:
     def __init__(self, CHROOT_NAME, CHROOT_DIR, SOURCE_DIR, APT_SERVER_CONFIG, \
     MANIFEST_MAP=None, DEB_OUT_TEMP_DIR=None, DEB_OUT_DIR=None, DEB_OUT_DIR_APT=None, \
     DEBIAN_INSTALL_DIR_APT=None, IS_CLEANUP_ENABLED=True, IS_PREPARE_SOURCE=False, \
-    DIST= "noble", ARCH="arm64", CHROOT_SUFFIX="ubuntu", TECH_VARIANT=None):
+    DIST= "noble", ARCH="arm64", CHROOT_SUFFIX="ubuntu", TECH_VARIANT=None, incremental=False):
         """
         Initializes the PackageBuilder instance.
 
@@ -71,6 +74,15 @@ class PackageBuilder:
         self.DEBIAN_INSTALL_DIR_APT = DEBIAN_INSTALL_DIR_APT
         self.IS_PREPARE_SOURCE = IS_PREPARE_SOURCE
         self.TECH_VARIANT = TECH_VARIANT
+        self.incremental = incremental
+        self.build_state = {}
+        self.rebuilt_packages = set()
+        self.source_changed_packages = set()
+        self._stats_built = []
+        self._stats_skipped = 0
+        self._start_time = None
+        if self.incremental and self.DEB_OUT_DIR:
+            self._load_build_state()
         if self.TECH_VARIANT in SNAP_SHOT_TABLE.keys():
             self.TECH_DEBIAN_MIRROR = SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")
         else:
@@ -133,6 +145,68 @@ class PackageBuilder:
             logger.warning(f"Failed to install ros2-apt-source in chroot: {e}")
             logger.warning("Will use trusted=yes for ROS repository instead")
 
+    def _get_build_state_path(self):
+        return os.path.join(self.DEB_OUT_DIR, ".build-state.json")
+
+    def _load_build_state(self):
+        path = self._get_build_state_path()
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, 'r') as f:
+                data = json.load(f)
+            if data.get('schema_version') == 1:
+                self.build_state = data.get('packages', {})
+                logger.info(f"[incremental] Loaded build state for {len(self.build_state)} packages")
+        except (json.JSONDecodeError, IOError, KeyError) as e:
+            logger.warning(f"[incremental] Could not load build state, will do full rebuild: {e}")
+            self.build_state = {}
+
+    def _save_build_state(self):
+        path = self._get_build_state_path()
+        try:
+            with open(path, 'w') as f:
+                json.dump({'schema_version': 1, 'packages': self.build_state}, f, indent=2)
+        except IOError as e:
+            logger.warning(f"[incremental] Failed to save build state: {e}")
+
+    def _compute_source_hash(self, repo_path):
+        SKIP_DIRS = {'.git', '__pycache__', '.pc'}
+        SKIP_EXTS = {'.pyc', '.deb', '.ddeb', '.dsc', '.gz', '.xz', '.o', '.ko'}
+        hasher = hashlib.sha256()
+        for root, dirs, files in os.walk(str(repo_path)):
+            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+            for fname in sorted(files):
+                if os.path.splitext(fname)[1] in SKIP_EXTS:
+                    continue
+                fpath = os.path.join(root, fname)
+                rel = os.path.relpath(fpath, str(repo_path))
+                hasher.update(rel.encode())
+                try:
+                    with open(fpath, 'rb') as f:
+                        while chunk := f.read(65536):
+                            hasher.update(chunk)
+                except (IOError, OSError):
+                    pass
+        return 'sha256:' + hasher.hexdigest()
+
+    def _can_skip_build(self, repo_path, dependencies):
+        state = self.build_state.get(str(repo_path))
+        if not state:
+            return False
+        if any(dep in self.source_changed_packages for dep in dependencies):
+            logger.debug(f"[incremental] Dependency source-changed, forcing rebuild of {repo_path.name}")
+            return False
+        current_hash = self._compute_source_hash(repo_path)
+        if state.get('source_hash') != current_hash:
+            logger.debug(f"[incremental] Source changed for {repo_path.name}")
+            return False
+        for fpath in state.get('output_debs', []):
+            if not os.path.exists(fpath):
+                logger.debug(f"[incremental] Output missing for {repo_path.name}: {fpath}")
+                return False
+        return True
+
     def generate_schroot_config(self):
         """
         Generates the schroot configuration for the specified chroot environment.
@@ -183,6 +257,47 @@ class PackageBuilder:
 
         logger.info(f"Schroot environment {self.CHROOT_NAME} created successfully.")
 
+    @staticmethod
+    def _canonical_pkg_name(pkg_name: str) -> str:
+        name = pkg_name.removesuffix('-dev').removesuffix('-dbgsym')
+        if name and name[-1].isdigit():
+            name = name[:-1]
+        return name
+
+    def _find_output_debs(self, pkg_names: set) -> list:
+        found = []
+        for pkg in pkg_names:
+            cname = self._canonical_pkg_name(pkg)
+            for subdir in ('oss', 'prop'):
+                d = Path(self.DEB_OUT_DIR) / subdir / cname
+                if d.is_dir():
+                    for f in d.iterdir():
+                        if f.suffix in ('.deb', '.ddeb') and f.is_file():
+                            found.append(str(f))
+        return sorted(found)
+
+    def _auto_bootstrap(self):
+        """Bootstrap build state from existing .deb output when no state file exists."""
+        logger.info("[incremental] No build state found — bootstrapping from existing output...")
+        recorded = 0
+        for pkg_key, pkg_info in self.packages.items():
+            repo_path = pkg_info['repo_path']
+            repo_name = pkg_info['repo_name']
+            pkg_names = pkg_info['packages']
+            output_debs = self._find_output_debs(pkg_names)
+            if not output_debs:
+                continue
+            source_hash = self._compute_source_hash(repo_path)
+            self.build_state[str(repo_path)] = {
+                'repo_name': repo_name,
+                'source_hash': source_hash,
+                'last_built': datetime.now(timezone.utc).isoformat(),
+                'output_debs': output_debs,
+            }
+            recorded += 1
+        self._save_build_state()
+        logger.info(f"[incremental] Bootstrap complete: {recorded}/{len(self.packages)} packages recorded")
+
     def load_packages(self):
         """Load package metadata from build_config.py and fetch dependencies from control files."""
         source_dirs = self.SOURCE_DIR if isinstance(self.SOURCE_DIR, list) else [self.SOURCE_DIR]
@@ -202,6 +317,9 @@ class PackageBuilder:
                         "packages": pkg_names,
                         "visited": False
                     }
+
+        if self.incremental and self.DEB_OUT_DIR and not self.build_state:
+            self._auto_bootstrap()
 
     def get_packages_from_control(self, control_file):
         """
@@ -370,6 +488,7 @@ class PackageBuilder:
         # properly specificaly with the edge case or qcom-adreno/qcom-adreno-cl
         package_names.sort(reverse=True, key=lambda x: len(x))
 
+        copied_files = []
         for package_name in package_names:
             output_dir = os.path.join(self.DEB_OUT_DIR, oss_or_prop, package_name)
             create_new_directory(output_dir, delete_if_exists=False)
@@ -381,21 +500,27 @@ class PackageBuilder:
             dbg_package = next((file for file in dbg_files if package_name in file), None)
 
             if deb_package is not None:
-                shutil.copy(os.path.join(repo_build_tmp_dir, deb_package), os.path.join(output_dir, deb_package))
+                dst = os.path.join(output_dir, deb_package)
+                shutil.copy(os.path.join(repo_build_tmp_dir, deb_package), dst)
+                copied_files.append(dst)
                 logger.info(f'Copied {deb_package} to {output_dir}')
                 deb_files.remove(deb_package)
             else:
                 logger.debug(f"No .deb package found for {package_name}")
 
             if dev_package is not None:
-                shutil.copy(os.path.join(repo_build_tmp_dir, dev_package), os.path.join(output_dir, dev_package))
+                dst = os.path.join(output_dir, dev_package)
+                shutil.copy(os.path.join(repo_build_tmp_dir, dev_package), dst)
+                copied_files.append(dst)
                 logger.info(f'Copied {dev_package} to {output_dir}')
                 dev_files.remove(dev_package)
             else:
                 logger.debug(f"No -dev.deb package found for {package_name}")
 
             if dbg_package is not None:
-                shutil.copy(os.path.join(repo_build_tmp_dir, dbg_package), os.path.join(output_dir, dbg_package))
+                dst = os.path.join(output_dir, dbg_package)
+                shutil.copy(os.path.join(repo_build_tmp_dir, dbg_package), dst)
+                copied_files.append(dst)
                 logger.info(f'Copied {dbg_package} to {output_dir}')
                 dbg_files.remove(dbg_package)
             else:
@@ -409,6 +534,8 @@ class PackageBuilder:
                 logger.info(f'Moved {dsc_package} to {output_dir}')
             else:
                 logger.debug(f"No .dsc file found for {package_name}")
+
+        return copied_files
 
     def build_package(self, package):
         """
@@ -433,6 +560,11 @@ class PackageBuilder:
         repo_name = package_info["repo_name"]
         debian_dir = package_info["debian_dir"]
         packages = package_info['packages']
+
+        if self.incremental and self._can_skip_build(repo_path, package_info['dependencies']):
+            logger.info(f"[incremental] Skipping {packages}: source unchanged")
+            self._stats_skipped += 1
+            return
 
         package_temp_dir = os.path.join(self.DEB_OUT_TEMP_DIR, repo_name)
 
@@ -510,7 +642,23 @@ class PackageBuilder:
                     logger.error(f"Failed to restore symlink {link_path}: {restore_error}")
                     # Continue with other symlinks even if one fails
 
-        self.reorganize_outputs_in_oss_prop(repo_path, package_temp_dir)
+        copied_files = self.reorganize_outputs_in_oss_prop(repo_path, package_temp_dir)
+
+        if self.incremental:
+            source_hash = self._compute_source_hash(repo_path)
+            old_hash = (self.build_state.get(str(repo_path)) or {}).get('source_hash')
+            self.build_state[str(repo_path)] = {
+                'repo_name': repo_name,
+                'source_hash': source_hash,
+                'last_built': datetime.now(timezone.utc).isoformat(),
+                'output_debs': copied_files,
+            }
+            self._save_build_state()
+            self.rebuilt_packages.update(packages)
+            if old_hash != source_hash:
+                self.source_changed_packages.update(packages)
+
+        self._stats_built.append(repo_name)
 
         # Clean up dpkg-source artifacts (*.tar.gz, *.tar.xz, *.dsc) left in the
         # parent directory of the source tree by dpkg-buildpackage / sbuild.
@@ -521,6 +669,26 @@ class PackageBuilder:
                 logger.debug(f"Removed dpkg-source artifact: {artifact}")
 
         logger.info(f"{packages} built successfully!")
+
+    def log_build_summary(self):
+        total = len(self.packages)
+        built = len(self._stats_built)
+        skipped = self._stats_skipped
+        if self._start_time:
+            elapsed = (datetime.now(timezone.utc) - self._start_time).total_seconds()
+            mins, secs = divmod(elapsed, 60)
+            elapsed_str = f"{int(mins)}m {secs:.1f}s" if mins >= 1 else f"{secs:.1f}s"
+        else:
+            elapsed_str = "N/A"
+        logger.info("=" * 60)
+        logger.info(f"Build summary: {total} packages total | {built} built | {skipped} skipped | elapsed {elapsed_str}")
+        if self._stats_built:
+            logger.info(f"Built packages ({built}):")
+            for name in self._stats_built:
+                logger.info(f"  - {name}")
+        else:
+            logger.info("No packages were built (all up to date)")
+        logger.info("=" * 60)
 
     def build_all_packages(self):
         """Builds all packages in dependency order."""

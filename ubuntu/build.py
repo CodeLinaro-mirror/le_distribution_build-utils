@@ -24,6 +24,7 @@ import random
 import shutil
 import argparse
 import traceback
+from datetime import datetime, timezone
 import glob
 import subprocess
 
@@ -372,6 +373,7 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
     error_during_packages_build = False
 
     logger.info("Running the debian packages generation phase")
+    _phase_start = datetime.now(timezone.utc)
 
     try:
         DEB_OUT_DIR_APT = None
@@ -383,7 +385,8 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             DEBIAN_INSTALL_DIR_APT = build_deb_package_gz(DEBIAN_INSTALL_DIR, start_server=True)
 
         # Initialize the PackageBuilder to load packages
-        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIRS, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE,TECH_VARIANT=TECH_VARIANT)
+        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIRS, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE, TECH_VARIANT=TECH_VARIANT, incremental=True)
+        builder._start_time = _phase_start
         builder.load_packages()
 
         # Build a specific package if provided, otherwise build all packages
@@ -393,6 +396,8 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
         else:
             logger.debug("Building all packages")
             builder.build_all_packages()
+
+        builder.log_build_summary()
 
     except Exception as e:
         error_during_packages_build = True
