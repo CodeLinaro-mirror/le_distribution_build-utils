@@ -662,8 +662,16 @@ class PackageBuilder:
 
         # Clean up dpkg-source artifacts (*.tar.gz, *.tar.xz, *.dsc) left in the
         # parent directory of the source tree by dpkg-buildpackage / sbuild.
+        source_pkg_name = repo_name
+        control_file = debian_dir / "control"
+        if control_file.exists():
+            with open(control_file) as _cf:
+                for _line in _cf:
+                    if _line.startswith("Source:"):
+                        source_pkg_name = _line.split(":", 1)[1].strip()
+                        break
         parent_dir = repo_path.parent
-        for artifact in parent_dir.glob(f"{repo_name}_*"):
+        for artifact in parent_dir.glob(f"{source_pkg_name}_*"):
             if artifact.suffix in ('.gz', '.xz', '.dsc') and artifact.is_file():
                 artifact.unlink()
                 logger.debug(f"Removed dpkg-source artifact: {artifact}")
