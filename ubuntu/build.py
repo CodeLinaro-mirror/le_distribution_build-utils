@@ -213,13 +213,8 @@ KERNEL_DEB_URL = args.kernel_deb_url
 SOURCES_DIRS = [
     # Add more directories to scan for debian packages here, e.g.:
     # os.path.join(WORKSPACE_DIR, "vendor"),
+    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros"),
     os.path.join(WORKSPACE_DIR, "sources", "robotics", "external"),
-    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "ocr_service"),
-    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "lib_mem_dmabuf"),
-    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "qrb_ros_transport", "qrb_ros_transport_image_type"),
-    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "qrb_ros_transport", "qrb_ros_transport_point_cloud2_type"),
-    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "dmabuf_transport"),
-    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "qrb_ros_system_monitor"),
     os.path.join(WORKSPACE_DIR, "frameworks"),
     os.path.join(WORKSPACE_DIR, "graphics"),
     os.path.join(WORKSPACE_DIR, "system"),
@@ -229,8 +224,6 @@ SOURCES_DIRS = [
     os.path.join(WORKSPACE_DIR, "layers", "meta-qti-automotive"),
     os.path.join(WORKSPACE_DIR, "layers", "meta-qti-automotive-prop"),
     os.path.join(WORKSPACE_DIR, "sources", "robotics-sdk"),
-    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros/qrb_ros_samples/simulation_sample_amr_simple_motion"),
-    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros/qrb_ros_samples/simulation_sample_pick_and_place"),
     # Don't compile any packages to quick merge current changes.
     os.path.join(WORKSPACE_DIR, "wlan", "qcacld-3.0"),
     os.path.join(WORKSPACE_DIR, "device", "qcom", "wlan"),
