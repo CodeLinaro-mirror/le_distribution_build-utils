@@ -200,6 +200,8 @@ CONFIG_WWAN_CORE=y
 CONFIG_MHI_WWAN_CTRL=y
 CONFIG_MHI_WWAN_MBIM=y
 CONFIG_MHI_BUS_DEBUG=y
+CONFIG_CAN_M_CAN=m
+CONFIG_CAN_M_CAN_TCAN4X5X=m
 EOF
     base_defconfig=${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_defconfig
     kernel_arch_config="${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto.config  ${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto_debug.config  ${WORKSPACE}/layers/meta-qti-realtime/recipes-kernel/linux/linux-qcom-custom-rt/qcom_rt.cfg  ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/sa8797p-generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/selinux.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/devmem.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/no-earlyramdisk.cfg"
