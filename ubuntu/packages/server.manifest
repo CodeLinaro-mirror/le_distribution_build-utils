@@ -127,6 +127,8 @@ adreno 1.0.0
 owfds 1.0.0
 owfds-ship 1.0.0
 gbm-sa 1.0.0
+libdrm-sa
+drm-fe
 #video
 vpu-firmware 1.0.0
 video-driver 1.0.0
