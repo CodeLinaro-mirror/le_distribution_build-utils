@@ -554,6 +554,32 @@ def resolve_manifest_path(manifest_path, workspace, IMAGE_TYPE):
         else:
             raise FileNotFoundError(f"Manifest file not found: {abs_manifest}")
 
+def fix_debian_permissions(root: str = ".") -> None:
+    """
+    Normalizes permissions under every debian/ directory found beneath root.
+    Removes the executable bit from all regular files (maxdepth 2 from the
+    debian/ dir), then restores +x on debian/rules so dpkg-buildpackage can
+    execute it.
+    """
+    root_path = Path(root)
+    no_exec = ~(stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    all_exec = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+
+    for rules in root_path.rglob("debian/rules"):
+        if not rules.is_file():
+            continue
+        debian_dir = rules.parent
+        for file in debian_dir.rglob("*"):
+            if not file.is_file():
+                continue
+            if len(file.relative_to(debian_dir).parts) > 2:
+                continue
+            if file == rules:
+                continue
+            file.chmod(file.stat().st_mode & no_exec)
+        rules.chmod(rules.stat().st_mode | all_exec)
+        logger.debug(f"Fixed debian permissions in {debian_dir}")
+
 def download_ros2_apt_source_deb(dest_dir: str, distro: str) -> str:
     """
     Downloads the latest ros2-apt-source .deb from GitHub Releases.
