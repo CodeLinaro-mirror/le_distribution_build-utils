@@ -131,5 +131,11 @@ gbm-sa 1.0.0
 vpu-firmware 1.0.0
 video-driver 1.0.0
 vidc-test-app 1.0.0
+#Camera
+gptp
+apdf
+camera-camx
+camera-qcx
+camera-camx-test
 
 
