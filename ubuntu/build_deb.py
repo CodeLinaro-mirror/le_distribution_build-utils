@@ -21,7 +21,7 @@ from pathlib import Path
 from queue import Queue
 from collections import defaultdict, deque
 from constants import *
-from helpers import run_command, check_and_append_line_in_file, create_new_directory, build_deb_package_gz, run_command_for_result, print_build_logs, download_ros2_apt_source_deb
+from helpers import run_command, check_and_append_line_in_file, create_new_directory, build_deb_package_gz, run_command_for_result, print_build_logs, download_ros2_apt_source_deb, fix_debian_permissions
 from deb_organize import search_manifest_map_for_path
 from color_logger import logger
 
@@ -623,6 +623,8 @@ class PackageBuilder:
                         logger.warning(f"Skipping symlink {entry.path}: target not accessible or not a directory")
                 except (OSError, IOError) as e:
                     logger.warning(f"Failed to resolve symlink {entry.path}: {e}")
+
+        fix_debian_permissions(repo_path)
 
         try:
             run_command(cmd, cwd=repo_path)
