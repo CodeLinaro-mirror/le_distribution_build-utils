@@ -248,30 +248,6 @@ except FileNotFoundError:
     print("camera camx copy script not found")
 
 
-qcx_copy_script_path = os.path.abspath(os.path.join(current_dir, '../../vendor/qcom/proprietary/qcx/qcx_copy_code.sh'))
-
-qcx_dir = os.path.dirname(qcx_copy_script_path)
-
-try:
-    subprocess.run(['bash', qcx_copy_script_path], check=True, cwd=qcx_dir)
-except subprocess.CalledProcessError as e:
-    print(f"execute camera qcx copy script failed : {e}")
-except FileNotFoundError:
-    print("camera qcx copy script not found")
-
-
-camxtest_copy_script_path = os.path.abspath(os.path.join(current_dir, '../../vendor/qcom/proprietary/camx-test/camx-test_copy_code.sh'))
-
-camxtest_dir = os.path.dirname(camxtest_copy_script_path)
-
-try:
-    subprocess.run(['bash', camxtest_copy_script_path], check=True, cwd=camxtest_dir)
-except subprocess.CalledProcessError as e:
-    print(f"execute camera camx test copy script failed : {e}")
-except FileNotFoundError:
-    print("camera camx test copy script not found")
-
-
 OSS_DEB_OUT_DIR = os.path.join(DEB_OUT_DIR, "oss")
 QC_FOLDER = os.path.join(WORKSPACE_DIR, "qc")
 KERNEL_DEB_OUT_DIR = (
