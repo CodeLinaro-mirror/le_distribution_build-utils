@@ -218,6 +218,7 @@ SOURCES_DIRS = [
     os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "lib_mem_dmabuf"),
     os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "qrb_ros_transport", "qrb_ros_transport_image_type"),
     os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "qrb_ros_transport", "qrb_ros_transport_point_cloud2_type"),
+    os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "dmabuf_transport"),
     os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros", "qrb_ros_system_monitor"),
     os.path.join(WORKSPACE_DIR, "frameworks"),
     os.path.join(WORKSPACE_DIR, "graphics"),
