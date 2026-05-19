@@ -399,7 +399,7 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
         except Exception as e:
             logger.critical(f"Exception during qnn-sdk build : {e}")
             traceback.print_exc()
-            error_duiring_qnn_sdk_build = True
+            error_during_qnn_sdk_build = True
 
         finally:
             if error_during_qnn_sdk_build:
