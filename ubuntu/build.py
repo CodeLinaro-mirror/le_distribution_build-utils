@@ -389,6 +389,25 @@ if IF_RELEASE_PREP_URL:
         logger.info(f"details: {st.get('details')}")
 
 if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
+    if not os.path.exists(os.path.join(DEB_OUT_DIR, "oss/qnn-sdk/qnn-sdk.deb")):
+        logger.info("build qnn-sdk")
+        error_during_qnn_sdk_build = False
+        try:
+            os.chdir(BUILD_SCRIPT_DIR)
+            subprocess.run(["./build-qnn-sdk.sh"], check=True)
+
+        except Exception as e:
+            logger.critical(f"Exception during qnn-sdk build : {e}")
+            traceback.print_exc()
+            error_duiring_qnn_sdk_build = True
+
+        finally:
+            if error_during_qnn_sdk_build:
+                logger.critical("qnn-sdk build failed. Exiting.")
+                exit(1)
+    else:
+        logger.info("qnn-sdk deb exist, skip")
+
     error_during_packages_build = False
 
     logger.info("Running the debian packages generation phase")
