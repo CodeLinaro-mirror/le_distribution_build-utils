@@ -14,9 +14,10 @@
 #
 # This script:
 #   1. Installs all required system packages
-#   2. Configures /etc/subuid and /etc/subgid for the build user
-#   3. Enables unprivileged user namespaces (persistent across reboots)
-#   4. Verifies newuidmap/newgidmap have the setuid bit
+#   2. Adds the build user to the sbuild group (required for --gen-debians)
+#   3. Configures /etc/subuid and /etc/subgid for the build user
+#   4. Enables unprivileged user namespaces (persistent across reboots)
+#   5. Verifies newuidmap/newgidmap have the setuid bit
 #
 # After running this script, the build user can run build.py without sudo.
 
@@ -41,7 +42,7 @@ echo ""
 # ---------------------------------------------------------------------------
 # Step 1: Install required packages
 # ---------------------------------------------------------------------------
-echo "[1/4] Installing required packages..."
+echo "[1/5] Installing required packages..."
 apt-get update -qq
 apt-get install -y \
     mmdebstrap \
@@ -68,9 +69,23 @@ pip3 install --quiet gitpython requests 2>/dev/null || true
 echo "    [OK] Packages installed."
 
 # ---------------------------------------------------------------------------
-# Step 2: Configure /etc/subuid and /etc/subgid
+# Step 2: Add build user to sbuild group
 # ---------------------------------------------------------------------------
-echo "[2/4] Configuring subuid/subgid for user '$BUILD_USER'..."
+echo "[2/5] Adding '$BUILD_USER' to the sbuild group..."
+
+if id -nG "$BUILD_USER" 2>/dev/null | tr ' ' '\n' | grep -qx "sbuild"; then
+    echo "    [OK] $BUILD_USER is already in the sbuild group."
+else
+    usermod -aG sbuild "$BUILD_USER"
+    echo "    [OK] Added $BUILD_USER to the sbuild group."
+    echo "    [NOTE] The user must log out and back in (or run 'newgrp sbuild') for the"
+    echo "           group change to take effect in interactive sessions."
+fi
+
+# ---------------------------------------------------------------------------
+# Step 3: Configure /etc/subuid and /etc/subgid
+# ---------------------------------------------------------------------------
+echo "[3/5] Configuring subuid/subgid for user '$BUILD_USER'..."
 
 if grep -q "^${BUILD_USER}:" /etc/subuid 2>/dev/null; then
     echo "    [OK] /etc/subuid already configured for $BUILD_USER."
@@ -87,9 +102,9 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Step 3: Enable unprivileged user namespaces (persistent)
+# Step 4: Enable unprivileged user namespaces (persistent)
 # ---------------------------------------------------------------------------
-echo "[3/4] Enabling unprivileged user namespaces..."
+echo "[4/5] Enabling unprivileged user namespaces..."
 # Note: The sbuild base tarball (noble.tar.gz) is created automatically by
 # build.py on first use and stored in <workspace>/.cache/sbuild/ via
 # XDG_CACHE_HOME, keeping it project-local and out of ~/.cache.
@@ -117,7 +132,7 @@ fi
 # ---------------------------------------------------------------------------
 # Step 4: Ensure newuidmap/newgidmap have the setuid bit
 # ---------------------------------------------------------------------------
-echo "[4/4] Verifying newuidmap/newgidmap setuid bit..."
+echo "[5/5] Verifying newuidmap/newgidmap setuid bit..."
 
 NEWUIDMAP=$(which newuidmap 2>/dev/null || true)
 NEWGIDMAP=$(which newgidmap 2>/dev/null || true)
@@ -150,6 +165,7 @@ echo "=== Setup Complete ==="
 echo ""
 echo "Verification:"
 echo "  Build user  : $BUILD_USER"
+echo "  sbuild group: $(id -nG "$BUILD_USER" 2>/dev/null | tr ' ' '\n' | grep -qx sbuild && echo 'yes' || echo 'NOT FOUND')"
 echo "  subuid      : $(grep "^${BUILD_USER}:" /etc/subuid || echo 'NOT FOUND')"
 echo "  subgid      : $(grep "^${BUILD_USER}:" /etc/subgid || echo 'NOT FOUND')"
 echo "  userns      : $(cat /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || echo 'N/A')"
