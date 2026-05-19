@@ -129,6 +129,7 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/pcie/0008-MHI_EP_dmaengine-dw-edma-Add-correct-offsets-for-HDMA-RD-WR.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0001-pci-Add-pcie-module-dependency.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0009-MHI_RC_bus-mhi-host-pci_generic-Add-support-for-FN990B40-modem.patch
+    apply_patch ${downstream_qc_patch_path}/0020-serial-qcom-geni-Increase-UART-ports-to-7.patch
     apply_patch ${downstream_qc_patch_path}/qup/0033-meta-qti-auto-kernel-ccu-Add-Ftrace-support-for-CCU.patch
     apply_patch ${downstream_qc_patch_path}/qup/0034-i2c-qcom-geni-Skip-TX-DMA-TRE-for-I2C-read-operation.patch
     apply_patch ${downstream_qc_patch_path}/qup/0035-i2c-qcom-geni-Add-asynchronous-read-support-for-CCU-.patch
