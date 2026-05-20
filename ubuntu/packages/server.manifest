@@ -9,11 +9,36 @@
 # Lines starting with '#' are ignored.
 analyzer-tools 1.0.0
 #libaosal1 1.0.0
-# awe-audio-service 1.0.0
-#awe-alsa 1.0.0
-#awe-audiolite-osal 1.0.0
-#libawe-client 1.0.0
-# libawe-controller 1.0.0
+awe-command 1.0.0
+awe-config 1.0.0
+awe-audio-service 1.0.0
+awe-dsp-service 1.0.0
+awe-linuxproxy 1.0.0
+awe-packetservice 1.0.0
+awe-packetclient 1.0.0
+awe-packetserver 1.0.0
+awe-alsa 1.0.0
+awe-audiolite-osal 1.0.0
+libawe-controller 1.0.0
+awe-dev-plugin 1.0.0
+libawe-client 1.0.0
+libawe-server 1.0.0
+awe-manager 1.0.0
+awe-osal 1.0.0
+libawe-scmi 1.0.0
+awe-user-version 1.0.0
+awe-utils 1.0.0
+awe-alsa-plugin 1.0.0
+awe-sndparser 1.0.0
+aud-fastrpcd 1.0.0
+audio-log-util 1.0.0
+libaudio-adc 1.0.0
+libaudio-dac 1.0.0
+libaudio-expander 1.0.0
+audio-headers-export 1.0.0
+audiolite-devicetree 1.0.0
+audiolite-dlkm 1.0.0
+awe-public-headers-dev 1.0.0
 libbase 1.0.0
 #bootkpi-logging 1.0.0
 bt-dlkm 1.0.0
