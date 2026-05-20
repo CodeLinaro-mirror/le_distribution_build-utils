@@ -154,6 +154,9 @@ owfds-ship 1.0.0
 gbm-sa 1.0.0
 libdrm-sa
 drm-fe
+weston 13.0.1-1qti1
+libweston-13-0 13.0.1-1qti1
+weston-examples 13.0.1-1qti1
 #video
 vpu-firmware 1.0.0
 video-driver 1.0.0
