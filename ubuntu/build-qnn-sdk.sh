@@ -2,21 +2,28 @@
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+WORKSPACE=$(dirname "$(dirname "$SCRIPT_DIR")")
+
+
 create_qnn_sdk_package() {
-    SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-    WORKSPACE=$(dirname "$(dirname "$SCRIPT_DIR")")
-    echo "xrao-debug the workspace: ${WORKSPACE}"
     QNN_URL="https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/2.46.0.260424/v2.46.0.260424.zip"
-    QNN_ZIP="qnn-sdk.zip"
+    QNN_ZIP="${SCRIPT_DIR}/qnn-sdk.zip"
     QNN_SDK_ROOT="qairt/2.46.0.260424"
     rm -rf ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk
-    wget -O "$QNN_ZIP" "$QNN_URL"
+    wget -c --timeout=10 -O "$QNN_ZIP.tmp" "$QNN_URL" || {
+      echo "ERROR: qnn-sdk download failed"
+      rm -rf "$QNN_ZIP.tmp"
+      exit 1
+    }
+    mv "$QNN_ZIP.tmp" "$QNN_ZIP"
     mkdir -p ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/aarch64-oe-linux-gcc11.2
     unzip -j "$QNN_ZIP" "${QNN_SDK_ROOT}/lib/aarch64-oe-linux-gcc11.2/*.so" -d ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/
     mkdir -p ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/rfsa/adsp/hexagon-v81
     unzip -j "$QNN_ZIP" "${QNN_SDK_ROOT}/lib/hexagon-v81/unsigned/*" -d ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/rfsa/adsp/hexagon-v81/
     mkdir -p ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/include
     unzip -Z1 "$QNN_ZIP" | grep "^${QNN_SDK_ROOT}/include/QNN/.*\.h$" | while read f; do
+        [ -z "$f" ] && continue
         newpath=${f#${QNN_SDK_ROOT}/include/QNN}
         mkdir -p ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/include/$(dirname "$newpath")
         unzip -p "$QNN_ZIP" "$f" > ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/include/$newpath
