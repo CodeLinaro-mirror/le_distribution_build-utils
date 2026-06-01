@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 set -x
 PACKAGE_ONLY=false
-while getopts "p" opt; do
+BUILD_VARIANT=""
+while getopts "pv:" opt; do
   case $opt in
     p) PACKAGE_ONLY=true ;;
+    v) BUILD_VARIANT="$OPTARG" ;;
     \?) echo "Invalid option" ; exit 1 ;;
   esac
 done
@@ -16,8 +18,7 @@ KERNEL_PLATFORM_DIR="${WORKSPACE}/kernel/kernel_platform"
 OUTPUT_DIR="${WORKSPACE}/out"
 apply_patch() {
     patch=$1
-    git apply --check "${patch}" > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
+    if git apply --check "${patch}" > /dev/null 2>&1; then
         git apply "${patch}"
     fi
 }
@@ -205,7 +206,12 @@ CONFIG_CAN_M_CAN=m
 CONFIG_CAN_M_CAN_TCAN4X5X=m
 EOF
     base_defconfig=${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_defconfig
-    kernel_arch_config="${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto.config  ${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto_debug.config  ${WORKSPACE}/layers/meta-qti-realtime/recipes-kernel/linux/linux-qcom-custom-rt/qcom_rt.cfg  ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/sa8797p-generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/selinux.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/devmem.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/no-earlyramdisk.cfg"
+    if [ "${BUILD_VARIANT}" = "perf" ]; then
+        variant_cfg="${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/perf.cfg"
+    else
+        variant_cfg="${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/devmem.cfg"
+    fi
+    kernel_arch_config="${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto.config  ${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto_debug.config  ${WORKSPACE}/layers/meta-qti-realtime/recipes-kernel/linux/linux-qcom-custom-rt/qcom_rt.cfg  ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/sa8797p-generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/selinux.cfg ${variant_cfg} ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/no-earlyramdisk.cfg"
     # Disable early-ramdisk for now (-y)
     ${KERNEL_PLATFORM_DIR}/kernel/scripts/kconfig/merge_config.sh -m -r -y ${base_defconfig} ${kernel_arch_config}
 }
@@ -462,14 +468,23 @@ build_oot_dtbo() {
     cat "${OUTPUT_DIR}/build-dtb-artifacts/dtbs"/*.dtb* > "${OUTPUT_DIR}/build-dtb-artifacts/dtbs"/dtb.img
 }
 build_bootimg() {
+    cmdline=' rootwait firmware_class.path=/firmware/vm/boot systemd.gpt_auto=0 cgroup.memory=nokmem,nosocket qcom_scm.download_mode=1 rcupdate.rcu_expedited=1 rcu_nocbs=0-17 rcupdate.rcu_normal_after_boot=0 fsck.repair=yes systemd.service_watchdogs=0 driver_async_probe=scmi-hwmon androidboot.slot_suffix=_a root=PARTLABEL=system_a modprobe.blacklist=dm-multipath systemd.machine-id=512cec5b6c9547259d2c6ff2baf84f7e net.ifnames=0 biosdevname=0'
+    if [ "${BUILD_VARIANT}" != "perf" ]; then
+        cmdline="console=ttyMSM0,115200,n8 page_owner=on${cmdline}"
+    fi
+    if [ "${BUILD_VARIANT}" = "perf" ]; then
+        boot_img="${OUTPUT_DIR}/boot-perf.img"
+    else
+        boot_img="${OUTPUT_DIR}/boot.img"
+    fi
     ${WORKSPACE}/mkbootimg/mkbootimg.py --header_version 2 \
         --kernel  "${KERNEL_PLATFORM_DIR}"/kernel/arch/arm64/boot/Image \
         --dtb  "${OUTPUT_DIR}"/build-dtb-artifacts/dtbs/dtb.img \
         --pagesize 4096 \
         --base 0x80000000 \
         --ramdisk_offset 0x0 \
-        --cmdline ' rootwait console=ttyMSM0,115200,n8 firmware_class.path=/firmware/vm/boot systemd.gpt_auto=0 cgroup.memory=nokmem,nosocket qcom_scm.download_mode=1 page_owner=on rcupdate.rcu_expedited=1 rcu_nocbs=0-17 rcupdate.rcu_normal_after_boot=0 fsck.repair=yes systemd.service_watchdogs=0 driver_async_probe=scmi-hwmon androidboot.slot_suffix=_a root=PARTLABEL=system_a modprobe.blacklist=dm-multipath systemd.machine-id=512cec5b6c9547259d2c6ff2baf84f7e net.ifnames=0 biosdevname=0' \
-        --output  ${OUTPUT_DIR}/boot.img
+        --cmdline "${cmdline}" \
+        --output  ${boot_img}
 }
 # create kernal package manually, Depends on kernel build
 create_kernel_package() {
@@ -555,9 +570,23 @@ reorganize_kernel_deb() {
 
 mkdir -p "${OUTPUT_DIR}"
 if [[ $PACKAGE_ONLY = false ]];then
-build_kernel
-build_oot_dtbo
-build_bootimg
+if [ -n "${BUILD_VARIANT}" ]; then
+    # Single variant mode: build kernel once for the specified variant
+    build_kernel
+    build_oot_dtbo
+    build_bootimg
+else
+    # Default: build both debug and perf boot images
+    # Build debug kernel first -> boot.img
+    build_kernel
+    build_oot_dtbo
+    build_bootimg
+
+    # Build perf kernel -> boot-perf.img (reuse DTBs from debug build)
+    BUILD_VARIANT="perf"
+    build_kernel
+    build_bootimg
+fi
 fi
 create_kernel_package
 create_kernel_dlkm_package
