@@ -305,6 +305,9 @@ class PackageBuilder:
             for root, dirs, files in os.walk(source_dir, followlinks=True):
                 dirs[:] = [d for d in dirs if d != '.git']
                 if 'debian' in dirs:
+                    if os.path.exists(os.path.join(root, '.disable_package')) or os.path.exists(os.path.join(root, '.build-disable')):
+                        logger.debug(f"Skipping disabled package: {root}")
+                        continue
                     root_name = Path(root).name
                     debian_dir = Path(os.path.join(root, 'debian'))
                     pkg_names, dependencies = self.get_packages_from_control(debian_dir / "control")
