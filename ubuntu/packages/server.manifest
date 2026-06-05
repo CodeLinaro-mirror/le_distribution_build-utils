@@ -145,6 +145,7 @@ synx-service 1.0.0
 mm-osal 1.0.0
 planedef 1.0.0
 libaosal 1.0.0
+thermal-engine 1.0.12
 #GPU
 kgsl 1.0.0
 adreno 1.0.0
