@@ -168,5 +168,12 @@ apdf
 camera-camx
 camera-qcx
 camera-camx-test
-
+fastcv-headers 1.0.0
+fastcv-noship 1.0.0
+fastcv 1.0.0
+fadas-headers 1.0.0
+fadas-dev-headers 1.0.0
+fadas-noship 1.0.0
+fadas-noship-dev 1.0.0
+fadas 1.0.0
 
