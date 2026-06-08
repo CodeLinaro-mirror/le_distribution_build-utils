@@ -122,7 +122,9 @@ def parse_arguments():
     parser.add_argument('--build-abl', action='store_true', default=False,
                         help='Build ABL')
     parser.add_argument('--build-full-image', action='store_true', default=False,
-                        help='Full build: equivalent to --build-kernel --gen-debians --pack-image')
+                        help='Full build: equivalent to --build-kernel --gen-debians --pack-image (debug kernel, system.img)')
+    parser.add_argument('--build-full-image-perf', action='store_true', default=False,
+                        help='Full build perf variant: builds perf kernel (boot-perf.img) and system-perf.img')
 
     # Deprecated
     parser.add_argument('--chroot-name', type=str, required=False,
@@ -141,7 +143,11 @@ def parse_arguments():
 
     # If not overriden with an absolute path, resolve the relative path to the workspace : <workspace>/out/system.img
     if not os.path.isabs(args.output_image_file):
-        args.output_image_file = os.path.join(args.workspace, args.output_image_file)
+        # perf build defaults to system-perf.img unless user explicitly overrode the path
+        if args.build_full_image_perf and args.output_image_file == "out/system.img":
+            args.output_image_file = os.path.join(args.workspace, "out/system-perf.img")
+        else:
+            args.output_image_file = os.path.join(args.workspace, args.output_image_file)
 
     # If not overriden with an absolute path, resolve the repative path to the workspace : <workspace>/build/mount
     if not os.path.isabs(args.mount_dir):
@@ -190,11 +196,12 @@ BUILD_PACKAGE_NAME = args.package
 DEBIAN_INSTALL_DIR = args.debians_path
 
 # Process Flags
-IF_BUILD_KERNEL = args.build_kernel or args.build_full_image
-IF_BUILD_ABL = args.build_abl or args.build_full_image
-IF_GEN_DEBIANS = args.gen_debians or args.build_full_image
-IF_PACK_IMAGE = args.pack_image or args.pack_image_rel or args.build_full_image
+IF_BUILD_KERNEL = args.build_kernel or args.build_full_image or args.build_full_image_perf
+IF_BUILD_ABL = args.build_abl or args.build_full_image or args.build_full_image_perf
+IF_GEN_DEBIANS = args.gen_debians or args.build_full_image or args.build_full_image_perf
+IF_PACK_IMAGE = args.pack_image or args.pack_image_rel or args.build_full_image or args.build_full_image_perf
 IF_RELEASE_ENABLED = args.pack_image_rel
+IF_PERF_BUILD = args.build_full_image_perf
 IF_RELEASE_PREP_URL = args.release_prep_url
 IF_FLAT_META = args.flat_meta
 IS_CLEANUP_ENABLED = not args.nocleanup
@@ -334,7 +341,10 @@ if IF_BUILD_KERNEL:
 #        extract_vmlinux(DEB_OUT_DIR, VMLINUXPATH, VMLINUX_QCOM_FILE, OUT_DIR)
 
         os.chdir(BUILD_SCRIPT_DIR)
-        subprocess.run(["./build-bootimg.sh"], check=True)
+        if IF_PERF_BUILD:
+            subprocess.run(["./build-bootimg.sh", "-v", "perf"], check=True)
+        else:
+            subprocess.run(["./build-bootimg.sh", "-v", "debug"], check=True)
 
     except Exception as e:
         logger.critical(f"Exception during kernel build : {e}")

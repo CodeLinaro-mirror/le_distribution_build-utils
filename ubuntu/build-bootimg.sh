@@ -523,7 +523,7 @@ create_kernel_package() {
     cat <<EOF > ${WORKSPACE}/kernel/kernel_platform/source/DEBIAN/control
 Package: linux-qcom-source
 Section: base
-Version: 6.6.110
+Version: ${KERNELVERSION}
 Priority: optional
 Architecture: all
 Maintainer: leiwan <leiwan@autobuild-arm-sh01-lnx.qualcomm.com>
@@ -552,7 +552,7 @@ create_kernel_dlkm_package() {
     cat <<EOF > ${WORKSPACE}/kernel/kernel_platform/kernel-dlkm/DEBIAN/control
 Package: kernel-dlkm
 Section: base
-Version: 6.6.110
+Version: ${KERNELVERSION}
 Priority: optional
 Architecture: all
 Maintainer: leiwan <leiwan@autobuild-arm-sh01-lnx.qualcomm.com>
@@ -583,24 +583,14 @@ reorganize_kernel_deb() {
 }
 
 mkdir -p "${OUTPUT_DIR}"
-if [[ $PACKAGE_ONLY = false ]];then
-if [ -n "${BUILD_VARIANT}" ]; then
-    # Single variant mode: build kernel once for the specified variant
-    build_kernel
-    build_oot_dtbo
-    build_bootimg
-else
-    # Default: build both debug and perf boot images
-    # Build debug kernel first -> boot.img
-    build_kernel
-    build_oot_dtbo
-    build_bootimg
-
-    # Build perf kernel -> boot-perf.img (reuse DTBs from debug build)
-    BUILD_VARIANT="perf"
-    build_kernel
-    build_bootimg
+if [ -z "${BUILD_VARIANT}" ]; then
+    echo "Error: -v <variant> is required (debug or perf)"
+    exit 1
 fi
+if [[ $PACKAGE_ONLY = false ]];then
+build_kernel
+build_oot_dtbo
+build_bootimg
 fi
 create_kernel_package
 create_kernel_dlkm_package
