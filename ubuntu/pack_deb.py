@@ -306,35 +306,41 @@ mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --setup-hook='echo PARTLABEL=modem /firmware vfat defaults,ro >> "$1/etc/fstab"' \
 """
 
-        # If ros2-apt-source was installed via essential-hook, its postinst writes
-        # /etc/apt/sources.list.d/ros2.sources (signed-by key). mmdebstrap also injected
-        # the same URL with trusted=yes into sources.list. APT 2.7+ rejects duplicate
-        # sources with conflicting Trusted settings. Remove the mmdebstrap-injected line
-        # once ros2-apt-source is confirmed present.
-        if self.TECH_DEBIAN_MIRROR:
-            mirror_host = self.TECH_DEBIAN_MIRROR.split('//')[1].split('/')[0]
-            sed_host = mirror_host.replace('.', '\\.')
-            bash_command += (
-                f"--customize-hook='"
-                f"if [ -e \"$1/usr/share/ros-apt-source/ros2.sources\" ]; then "
-                f"sed -i \"/{sed_host}/d\" \"$1/etc/apt/sources.list\" 2>/dev/null; "
-                f"fi' \\\n"
-            )
-
         # Install ros2-apt-source via --essential-hook. This hook runs after essential
-        # packages (dpkg/apt) are written but before the main --include installation phase,
-        # so the ROS apt source is registered in time for ros-* packages in --include.
+        # packages are written but before --include, so the ROS apt source is registered
+        # in time for ros-* packages. After dpkg installs ros2-apt-source, its postinst
+        # writes sources.list.d/ros2.sources (signed-by=) via an absolute-path symlink.
+        # Under mmdebstrap unshare mode that symlink resolves against the host filesystem,
+        # so on hosts that have ros2-apt-source installed the symlink is live and APT sees
+        # both signed-by= and the trusted=yes positional source for the same URL.
+        # APT 2.7+ rejects that combination, causing --include to fail.
+        # Remove the mmdebstrap-injected trusted=yes line immediately after dpkg -i,
+        # before --include runs, to eliminate the conflict.
         if ros2_apt_source_deb:
             deb_basename = os.path.basename(ros2_apt_source_deb)
-            # Use || so that any failure in the install/update chain is non-fatal:
-            # --include packages are already resolved from TECH_DEBIAN_MIRROR; this
-            # hook only registers ros2-apt-source in the final image's dpkg database.
-            # The cleanup (rm -f) runs unconditionally via ';' regardless of outcome.
+            # ros2-apt-source postinst creates an absolute-path symlink:
+            #   $CHROOT/etc/apt/sources.list.d/ros2.sources -> /usr/share/ros-apt-source/ros2.sources
+            # Under mmdebstrap unshare mode --include only uses positional mirror args;
+            # it does not consult the chroot's sources.list.d. However, on hosts that have
+            # ros2-apt-source installed the symlink resolves against the host filesystem and
+            # APT sees both a signed-by= entry and the trusted=yes positional source for the
+            # same URL; APT 2.7+ rejects that combination.
+            # Remove the symlink immediately after dpkg -i so --include only sees the
+            # trusted=yes positional source and can resolve ros-* packages.
+            # A customize-hook (after --include) recreates the symlink identically to what
+            # postinst produces, so the final image state is indistinguishable from a normal
+            # ros2-apt-source installation; the trusted=yes entry is removed from the final
+            # image by the customize-hook that rewrites sources.list (line 299 above).
             bash_command += (
                 f"--essential-hook='cp {ros2_apt_source_deb} \"$1/tmp/{deb_basename}\""
                 f" && chroot \"$1\" dpkg -i /tmp/{deb_basename}"
                 f" || echo \"WARNING: ros2-apt-source hook failed, continuing\""
+                f"; rm -f \"$1/etc/apt/sources.list.d/ros2.sources\""
                 f"; rm -f \"$1/tmp/{deb_basename}\"' \\\n"
+            )
+            bash_command += (
+                f"--customize-hook='ln -sf /usr/share/ros-apt-source/ros2.sources"
+                f" \"$1/etc/apt/sources.list.d/ros2.sources\"' \\\n"
             )
 
         # tar hook must be the last customize-hook (after ros2 hooks) to capture the final rootfs
@@ -362,11 +368,10 @@ noble \
         bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports.ubuntu.com/ubuntu-ports noble main universe multiverse restricted\""
         bash_command += f" \"deb [arch=arm64 trusted=yes] http://ports.ubuntu.com/ubuntu-ports noble-updates main universe multiverse restricted\""
         if self.TECH_DEBIAN_MIRROR:
-            # TECH_DEBIAN_MIRROR is the primary source for --include ROS packages.
-            # ros2-apt-source (installed via essential-hook) only places files under
-            # /usr/share/ and does NOT symlink into /etc/apt/sources.list.d/, so apt
-            # inside mmdebstrap never discovers it. This positional arg is therefore
-            # the only way mmdebstrap can resolve ros-* packages during --include.
+            # trusted=yes is required for the mmdebstrap --include phase to resolve
+            # ros-* packages; mmdebstrap only uses positional mirror args during --include,
+            # not the chroot's sources.list.d. The entry is removed from the final image
+            # by the customize-hook that rewrites sources.list (see line 299 above).
             bash_command += f" \"deb [arch=arm64 trusted=yes] {self.TECH_DEBIAN_MIRROR} noble main\""
 
         out = run_command_for_result(bash_command)
