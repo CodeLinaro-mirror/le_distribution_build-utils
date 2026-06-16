@@ -59,7 +59,6 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/qup/0017-serial-qcom_geni-Fix-TX-interrupt-setup-and-spurious.patch
     apply_patch ${downstream_qc_patch_path}/0007-PENDING-scsi-ufs-qcom-Enable-sa8255p-platform.patch
     apply_patch ${downstream_qc_patch_path}/0001-PENDING-ufs-ufs-qcom-Skip-hibern8-FSM-state-check-fo.patch
-    apply_patch ${downstream_qc_patch_path}/0001-PENDING-ufs-ufs-qcom-Skip-UFS-link-startup-in-HLOS.patch
     apply_patch ${downstream_qc_patch_path}/0001-PENDING-firmware-extend-vmid-support-to-128.patch
     apply_patch ${downstream_qc_patch_path}/usb/0001-PENDING-usb-dwc3-qcom-Ensure-VBUS_VALID-is-set-after.patch
     apply_patch ${downstream_qc_patch_path}/usb/0002-PENDING-usb-dwc3-qcom-Ensure-PIPE_UTMI_CLK_SEL-is-pr.patch
@@ -76,18 +75,17 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/usb/0013-PENDING-phy-qcom-snps-femto-v2-Call-qcom_snps_hsphy_.patch
     apply_patch ${downstream_qc_patch_path}/usb/0014-PENDING-phy-qcom-snps-femto-v2-Add-support-for-SA825.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0001-PCIe_RC_Add-Qualcomm-PCIe-ECAM-root-complex-driv.patch
+    apply_patch ${downstream_qc_patch_path}/pcie/0002-PCIe_RC_Add-pcie-module-dependency.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0004-MHI_RC_bus-mhi-host-pci_generic-Disable-auto-suspen.patch
     apply_patch ${downstream_qc_patch_path}/0001-FROMLIST-of-of_reserved_mem-Increase-limit-for-reser.patch
     apply_patch ${downstream_qc_patch_path}/0013-net-stmmac-dwmac-qcom-ethqos-Enable-SCMI-ETH.patch
     apply_patch ${downstream_qc_patch_path}/0014-PENDING-qcom-Add-sa7255p-compatibles-for-core-driver.patch
     apply_patch ${downstream_qc_patch_path}/0016-PENDING-ice-Enable-ICE-on-SA8255p-Qualcomm-platforms.patch
-    apply_patch ${downstream_qc_patch_path}/scm_adci/0001-QCLINUX-arm64-dts-qcom-sa8255p-Modify-correct-dt-nam.patch
-    apply_patch ${downstream_qc_patch_path}/scm_adci/0002-QCLINUX-arm64-dts-qcom-sa8775p-Modify-correct-dt-nam.patch
-    apply_patch ${downstream_qc_patch_path}/scm_adci/0003-QCLINUX-arm64-dts-qcom-sa7255p-Modify-correct-dt-nam.patch
     apply_patch ${downstream_qc_patch_path}/scm_adci/0004-BACKPORT-FROMLIST-firmware-qcom-scm-Support-multiple.patch
     apply_patch ${downstream_qc_patch_path}/scm_adci/0005-PENDING-firmware-qcom-scm-Add-support-for-WAITQ_WAKE.patch
     apply_patch ${downstream_qc_patch_path}/scm_adci/0006-PENDING-firmware-qcom-scm-Add-new-lock-and-selective.patch
-    apply_patch ${downstream_qc_patch_path}/scm_adci/0007-QCLINUX-arm64-dts-qcom-qcs9100-Modify-correct-dt-nam.patch
+    apply_patch ${downstream_qc_patch_path}/scm_adci/0008-PENDING-firmware-qcom-scm-Fix-race-in-qcom_scm_get_c.patch
+    apply_patch ${downstream_qc_patch_path}/scm_adci/0009-QCLINUX-firmware-qcom-scm-Fix-Makefile-for-trace-hea.patch
     apply_patch ${downstream_qc_patch_path}/0001-mm-memblock-enable-memory-hotplug.patch
     apply_patch ${downstream_qc_patch_path}/0001-PENDING-defer-no-map-memory-init-process.patch
     apply_patch ${downstream_qc_patch_path}/0003-scsi-ufs-Disable-auto-hibern8-feature.patch
@@ -96,6 +94,13 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/0008-Window-Watchdog-support-for-Sa8797.patch
     apply_patch ${downstream_qc_patch_path}/usb/0018-phy-qcom-phy-qcom-snps-eusb2-Add-support-for-SA8797P.patch
     apply_patch ${downstream_qc_patch_path}/usb/0019-usb-phy-qmp-combo-Add-scmi-related-changes-for-SA879.patch
+    apply_patch ${downstream_qc_patch_path}/usb/0020-PENDING-phy-core-Introduce-PHY-type-and-helper-API.patch
+    apply_patch ${downstream_qc_patch_path}/usb/0021-PENDING-phy-snps-eusb2-Set-PHY-type-for-Synopsys-eUS.patch
+    apply_patch ${downstream_qc_patch_path}/usb/0022-PENDING-usb-dwc3-Program-eUSB2-UTMI-opmode-in-host-m.patch
+    apply_patch ${downstream_qc_patch_path}/usb/0023-phy-phy-qcom-snps-eusb2-Add-register-sequence-to-fix.patch
+    apply_patch ${downstream_qc_patch_path}/usb/0024-dwc3-gadget-Fix-compliance-TD-9.23-compliance-issue.patch
+    apply_patch ${downstream_qc_patch_path}/usb/0025-PENDING-usb-phy-qmp-combo-Update-PHY-init-sequence.patch
+    apply_patch ${downstream_qc_patch_path}/usb/0026-PENDING-phy-ptn3222-Add-support-to-parse-the-param-f.patch
     apply_patch ${downstream_qc_patch_path}/0014-mailbox-qcom-cpucp-restructure-the-cpucp-mailbox-dri.patch
     apply_patch ${downstream_qc_patch_path}/0015-scmi-support-for-scmi-vendor-protocol-and-log-driver.patch
     apply_patch ${downstream_qc_patch_path}/0016-QCLINUX-MPAM-Snapshot-of-QCOM-MPAM-Driver.patch
@@ -110,6 +115,7 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/qup/0016-PENDING-i2c-i2c-qcom-geni-Add-APIs-to-support-CCU-QU.patch
     apply_patch ${downstream_qc_patch_path}/qup/0017-PENDING-soc-qcom-ccu-qup-Add-CCU-QUP-platform-driver.patch
     apply_patch ${downstream_qc_patch_path}/qup/0018-PENDING-i2c-i2c-qcom-geni-Add-async-write-support.patch
+    apply_patch ${downstream_qc_patch_path}/qup/0018-i2c-qcom-geni-Remove-redundant-runtime_resume-fallba.patch
     apply_patch ${downstream_qc_patch_path}/qup/0019-PENDING-soc-qcom-ccu-qup-Add-read-and-poll-API-suppo.patch
     apply_patch ${downstream_qc_patch_path}/qup/0020-PENDING-i2c-i2c-qcom-geni-Update-counter-setting-for.patch
     apply_patch ${downstream_qc_patch_path}/qup/0021-meta-qti-auto-kernel-Fix-cyclic-depedancy-between-CC.patch
@@ -127,10 +133,14 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/pcie/0003-PCIe_RC_Patch-PCIe-Fix-Safety-Features-for-sa8797p.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0005-MHI_RC_bus-mhi-host-pci_generic-Add-supoprt-for-SA8797P.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0007-PCIe_EP_qcom-ep-Add-support-for-SCMI-based-PCIe-EP-for-Nords.patch
+    apply_patch ${downstream_qc_patch_path}/pcie/0006-PCIe_EP_qcom-ep-Add-support-for-SCMI-based-PCIe-EP_Lemans.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0008-MHI_EP_dmaengine-dw-edma-Add-correct-offsets-for-HDMA-RD-WR.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0001-pci-Add-pcie-module-dependency.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0009-MHI_RC_bus-mhi-host-pci_generic-Add-support-for-FN990B40-modem.patch
     apply_patch ${downstream_qc_patch_path}/0020-serial-qcom-geni-Increase-UART-ports-to-7.patch
+    apply_patch ${downstream_qc_patch_path}/0019-net-phy-AQR-phy-10M-fix.patch
+    apply_patch ${downstream_qc_patch_path}/minidump/0001-PENDING-kallsyms-Export-kallsyms_lookup_name.patch
+    apply_patch ${downstream_qc_patch_path}/minidump/0002-PENDING-printk-sched-Export-internal-symbols-require.patch
     apply_patch ${downstream_qc_patch_path}/qup/0033-meta-qti-auto-kernel-ccu-Add-Ftrace-support-for-CCU.patch
     apply_patch ${downstream_qc_patch_path}/qup/0034-i2c-qcom-geni-Skip-TX-DMA-TRE-for-I2C-read-operation.patch
     apply_patch ${downstream_qc_patch_path}/qup/0035-i2c-qcom-geni-Add-asynchronous-read-support-for-CCU-.patch
