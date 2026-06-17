@@ -162,6 +162,7 @@ weston-examples 13.0.1-1qti1
 vpu-firmware 1.0.0
 video-driver 1.0.0
 vidc-test-app 1.0.0
+gstreamer1.0-plugins-vidc
 #Camera
 gptp
 apdf
