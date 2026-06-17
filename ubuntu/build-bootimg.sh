@@ -81,9 +81,13 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/0013-net-stmmac-dwmac-qcom-ethqos-Enable-SCMI-ETH.patch
     apply_patch ${downstream_qc_patch_path}/0014-PENDING-qcom-Add-sa7255p-compatibles-for-core-driver.patch
     apply_patch ${downstream_qc_patch_path}/0016-PENDING-ice-Enable-ICE-on-SA8255p-Qualcomm-platforms.patch
+    apply_patch ${downstream_qc_patch_path}/scm_adci/0001-QCLINUX-arm64-dts-qcom-sa8255p-Modify-correct-dt-nam.patch
+    apply_patch ${downstream_qc_patch_path}/scm_adci/0002-QCLINUX-arm64-dts-qcom-sa8775p-Modify-correct-dt-nam.patch
+    apply_patch ${downstream_qc_patch_path}/scm_adci/0003-QCLINUX-arm64-dts-qcom-sa7255p-Modify-correct-dt-nam.patch
     apply_patch ${downstream_qc_patch_path}/scm_adci/0004-BACKPORT-FROMLIST-firmware-qcom-scm-Support-multiple.patch
     apply_patch ${downstream_qc_patch_path}/scm_adci/0005-PENDING-firmware-qcom-scm-Add-support-for-WAITQ_WAKE.patch
     apply_patch ${downstream_qc_patch_path}/scm_adci/0006-PENDING-firmware-qcom-scm-Add-new-lock-and-selective.patch
+    apply_patch ${downstream_qc_patch_path}/scm_adci/0007-QCLINUX-arm64-dts-qcom-qcs9100-Modify-correct-dt-nam.patch
     apply_patch ${downstream_qc_patch_path}/scm_adci/0008-PENDING-firmware-qcom-scm-Fix-race-in-qcom_scm_get_c.patch
     apply_patch ${downstream_qc_patch_path}/scm_adci/0009-QCLINUX-firmware-qcom-scm-Fix-Makefile-for-trace-hea.patch
     apply_patch ${downstream_qc_patch_path}/0001-mm-memblock-enable-memory-hotplug.patch
@@ -133,12 +137,10 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/pcie/0003-PCIe_RC_Patch-PCIe-Fix-Safety-Features-for-sa8797p.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0005-MHI_RC_bus-mhi-host-pci_generic-Add-supoprt-for-SA8797P.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0007-PCIe_EP_qcom-ep-Add-support-for-SCMI-based-PCIe-EP-for-Nords.patch
-    apply_patch ${downstream_qc_patch_path}/pcie/0006-PCIe_EP_qcom-ep-Add-support-for-SCMI-based-PCIe-EP_Lemans.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0008-MHI_EP_dmaengine-dw-edma-Add-correct-offsets-for-HDMA-RD-WR.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0001-pci-Add-pcie-module-dependency.patch
     apply_patch ${downstream_qc_patch_path}/pcie/0009-MHI_RC_bus-mhi-host-pci_generic-Add-support-for-FN990B40-modem.patch
     apply_patch ${downstream_qc_patch_path}/0020-serial-qcom-geni-Increase-UART-ports-to-7.patch
-    apply_patch ${downstream_qc_patch_path}/0019-net-phy-AQR-phy-10M-fix.patch
     apply_patch ${downstream_qc_patch_path}/minidump/0001-PENDING-kallsyms-Export-kallsyms_lookup_name.patch
     apply_patch ${downstream_qc_patch_path}/minidump/0002-PENDING-printk-sched-Export-internal-symbols-require.patch
     apply_patch ${downstream_qc_patch_path}/qup/0033-meta-qti-auto-kernel-ccu-Add-Ftrace-support-for-CCU.patch
@@ -221,7 +223,7 @@ EOF
     else
         variant_cfg="${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/devmem.cfg"
     fi
-    kernel_arch_config="${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto.config  ${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto_debug.config  ${WORKSPACE}/layers/meta-qti-realtime/recipes-kernel/linux/linux-qcom-custom-rt/qcom_rt.cfg  ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/sa8797p-generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/selinux.cfg ${variant_cfg} ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/no-earlyramdisk.cfg"
+    kernel_arch_config="${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto.config  ${KERNEL_PLATFORM_DIR}/kernel/arch/arm64/configs/qcom_gen4auto_debug.config  ${WORKSPACE}/layers/meta-qti-realtime/recipes-kernel/linux/linux-qcom-custom-rt/qcom_rt.cfg  ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/sa8797p-generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/iqx.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/generic.cfg ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/selinux.cfg ${variant_cfg} ${WORKSPACE}/layers/meta-qti-auto-kernel/recipes-kernel/linux/files/no-earlyramdisk.cfg"
     # Disable early-ramdisk for now (-y)
     ${KERNEL_PLATFORM_DIR}/kernel/scripts/kconfig/merge_config.sh -m -r -y ${base_defconfig} ${kernel_arch_config}
 }
