@@ -486,8 +486,10 @@ build_bootimg() {
     fi
     if [ "${BUILD_VARIANT}" = "perf" ]; then
         boot_img="${OUTPUT_DIR}/boot-perf.img"
+        cp ${KERNEL_PLATFORM_DIR}/kernel/vmlinux ${OUTPUT_DIR}/vmlinux-perf
     else
         boot_img="${OUTPUT_DIR}/boot.img"
+        cp ${KERNEL_PLATFORM_DIR}/kernel/vmlinux ${OUTPUT_DIR}/vmlinux
     fi
     ${WORKSPACE}/mkbootimg/mkbootimg.py --header_version 2 \
         --kernel  "${KERNEL_PLATFORM_DIR}"/kernel/arch/arm64/boot/Image \
