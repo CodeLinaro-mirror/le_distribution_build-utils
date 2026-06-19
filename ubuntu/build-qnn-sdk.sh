@@ -19,14 +19,18 @@ create_qnn_sdk_package() {
     mv "$QNN_ZIP.tmp" "$QNN_ZIP"
     mkdir -p ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/aarch64-oe-linux-gcc11.2
     unzip -j "$QNN_ZIP" "${QNN_SDK_ROOT}/lib/aarch64-oe-linux-gcc11.2/*.so" -d ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/
+    chmod 0644 ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/*.so
     mkdir -p ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/rfsa/adsp/hexagon-v81
     unzip -j "$QNN_ZIP" "${QNN_SDK_ROOT}/lib/hexagon-v81/unsigned/*" -d ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/rfsa/adsp/hexagon-v81/
+    chmod 0644 ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/lib/rfsa/adsp/hexagon-v81/*
     mkdir -p ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/include
     unzip -Z1 "$QNN_ZIP" | grep "^${QNN_SDK_ROOT}/include/QNN/.*\.h$" | while read f; do
         [ -z "$f" ] && continue
         newpath=${f#${QNN_SDK_ROOT}/include/QNN}
         mkdir -p ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/include/$(dirname "$newpath")
+	chmod 0755 ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/include/$(dirname "$newpath")
         unzip -p "$QNN_ZIP" "$f" > ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/include/$newpath
+	chmod 0644 ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/usr/include/$newpath
     done
     rm -rf "${QNN_ZIP}"
     mkdir -p ${WORKSPACE}/sources/quic-qrb-ros/qnn-sdk/DEBIAN
