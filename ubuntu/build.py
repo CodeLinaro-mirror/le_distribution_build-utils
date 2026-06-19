@@ -224,6 +224,7 @@ SOURCES_DIRS = [
     os.path.join(WORKSPACE_DIR, "layers", "meta-qti-automotive"),
     os.path.join(WORKSPACE_DIR, "layers", "meta-qti-automotive-prop"),
     os.path.join(WORKSPACE_DIR, "sources", "robotics-sdk"),
+    os.path.join(WORKSPACE_DIR, "gstreamer", "gst-plugins-qti-oss"),
     # Don't compile any packages to quick merge current changes.
     os.path.join(WORKSPACE_DIR, "wlan", "qcacld-3.0"),
     os.path.join(WORKSPACE_DIR, "device", "qcom", "wlan"),
