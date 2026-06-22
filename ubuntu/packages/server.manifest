@@ -134,6 +134,8 @@ wlan-device-cfg-hmt 1.0.0
 cnss-wlan-load 1.0.0
 wpasupplicant 2.12
 hostapd 2.12
+wlan-sigma-dut 1.0.0
+wlan-prop 1.0.0
 ## Platform missed
 powercyclemgr 1.0.0
 vmm-lib 1.0
