@@ -325,6 +325,12 @@ except Exception as e:
     logger.error(f"Failed to generate manifest map: {e}")
     MANIFEST_MAP = {}
 
+# Show build enviroment
+print("==> Show build enviroment")
+for k in sorted(os.environ):
+    print(f"{k}={os.environ[k]}")
+
+
 # Build the kernel if specified
 if IF_BUILD_KERNEL:
     error_during_kernel_build = False
