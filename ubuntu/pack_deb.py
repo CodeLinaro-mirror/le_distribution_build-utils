@@ -292,6 +292,7 @@ mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='echo "127.0.0.1 localhost qc-ubuntu" > "$1/etc/hosts"' \
 --customize-hook='chroot "$1" useradd -m -s /bin/bash -p $(openssl passwd -6 "qc-ubuntu") qc-ubuntu' \
 --customize-hook='chroot "$1" usermod -aG sudo qc-ubuntu' \
+--customize-hook='chroot "$1" systemctl enable /usr/share/systemd/tmp.mount' \
 --customize-hook='cp {self.cur_file}/01-eth0.yaml "$1/etc/netplan/01-eth0.yaml"' \
 --customize-hook='echo "PermitRootLogin yes" >> "$1/etc/ssh/sshd_config"' \
 --customize-hook='[ -d "$1/lib/modules/6.6.110" ] && chroot "$1" depmod -a 6.6.110 || true' \
