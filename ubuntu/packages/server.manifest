@@ -134,6 +134,7 @@ wlan-device-cfg-hmt 1.0.0
 cnss-wlan-load 1.0.0
 wpasupplicant 2.12
 hostapd 2.12
+iperf3
 wlan-sigma-dut 1.0.0
 wlan-prop 1.0.0
 ## Platform missed
@@ -179,4 +180,3 @@ fadas-dev-headers 1.0.0
 fadas-noship 1.0.0
 fadas-noship-dev 1.0.0
 fadas 1.0.0
-
