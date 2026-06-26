@@ -20,12 +20,26 @@
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 WORKSPACE=$(dirname "$(dirname "$SCRIPT_DIR")")
 
+# Build variant (debug or perf). perf outputs go to a separate directory so
+# they don't collide with debug artifacts when copied into the same CRM.
+BUILD_VARIANT="debug"
+while getopts "v:" opt; do
+  case $opt in
+    v) BUILD_VARIANT="$OPTARG" ;;
+    \?) echo "Invalid option" ; exit 1 ;;
+  esac
+done
+
 # edk2 source directory (Yocto: bootable/bootloader/edk2)
 EDK2_DIR="${WORKSPACE}/bootable/bootloader/edk2"
 
 # Build/output directories
 BUILD_DIR="${EDK2_DIR}/out"
-OUTPUT_DIR="${WORKSPACE}/out"
+if [ "${BUILD_VARIANT}" = "perf" ]; then
+    OUTPUT_DIR="${WORKSPACE}/out-perf"
+else
+    OUTPUT_DIR="${WORKSPACE}/out"
+fi
 UNSIGNED_ABL="${OUTPUT_DIR}/abl-unsigned.elf"
 SIGNED_ABL="${OUTPUT_DIR}/abl.elf"
 

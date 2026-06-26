@@ -109,8 +109,9 @@ def parse_arguments():
     parser.add_argument('--base-manifest-path', type=str, required=False,
                         help='Path or URL to base manifest file')
     parser.add_argument('--output-image-file', type=str, required=False,
-                        help='Output file name in <workspace>/out/system.img',
-                        default="out/system.img")
+                        help='Output image path. Defaults to <workspace>/out/system.img '
+                             '(or <workspace>/out-perf/system.img for perf builds).',
+                        default=None)
     parser.add_argument('--package', type=str, required=False,
                         help='Package to build')
     parser.add_argument("--nocleanup", action="store_true",
@@ -124,7 +125,9 @@ def parse_arguments():
     parser.add_argument('--build-full-image', action='store_true', default=False,
                         help='Full build: equivalent to --build-kernel --gen-debians --pack-image (debug kernel, system.img)')
     parser.add_argument('--build-full-image-perf', action='store_true', default=False,
-                        help='Full build perf variant: builds perf kernel (boot-perf.img) and system-perf.img')
+                        help='Full build perf variant: builds perf kernel (boot.img) and system.img under out-perf/')
+    parser.add_argument('--perf', action='store_true', default=False,
+                        help='Build the perf variant; all outputs go to out-perf/ instead of out/')
 
     # Deprecated
     parser.add_argument('--chroot-name', type=str, required=False,
@@ -141,13 +144,12 @@ def parse_arguments():
     if not os.path.isabs(args.workspace):
         args.workspace = os.path.abspath(args.workspace)
 
-    # If not overriden with an absolute path, resolve the relative path to the workspace : <workspace>/out/system.img
-    if not os.path.isabs(args.output_image_file):
-        # perf build defaults to system-perf.img unless user explicitly overrode the path
-        if args.build_full_image_perf and args.output_image_file == "out/system.img":
-            args.output_image_file = os.path.join(args.workspace, "out/system-perf.img")
-        else:
-            args.output_image_file = os.path.join(args.workspace, args.output_image_file)
+    # If the user explicitly provided --output-image-file as a relative path,
+    # resolve it against the workspace. If it was not provided (None), the final
+    # path is resolved later against OUT_DIR (out/ or out-perf/) so perf builds
+    # land in out-perf/system.img.
+    if args.output_image_file and not os.path.isabs(args.output_image_file):
+        args.output_image_file = os.path.join(args.workspace, args.output_image_file)
 
     # If not overriden with an absolute path, resolve the repative path to the workspace : <workspace>/build/mount
     if not os.path.isabs(args.mount_dir):
@@ -201,7 +203,10 @@ IF_BUILD_ABL = args.build_abl or args.build_full_image or args.build_full_image_
 IF_GEN_DEBIANS = args.gen_debians or args.build_full_image or args.build_full_image_perf
 IF_PACK_IMAGE = args.pack_image or args.pack_image_rel or args.build_full_image or args.build_full_image_perf
 IF_RELEASE_ENABLED = args.pack_image_rel
-IF_PERF_BUILD = args.build_full_image_perf
+# perf variant is requested either by the standalone --perf flag (works with any
+# stage: --build-kernel, --pack-image, --build-abl) or the legacy
+# --build-full-image-perf full-build flag.
+IF_PERF_BUILD = args.perf or args.build_full_image_perf
 IF_RELEASE_PREP_URL = args.release_prep_url
 IF_FLAT_META = args.flat_meta
 IS_CLEANUP_ENABLED = not args.nocleanup
@@ -236,9 +241,18 @@ SOURCES_DIRS = [
     os.path.join(WORKSPACE_DIR, "wlan", "qcacld-3.0"),
     os.path.join(WORKSPACE_DIR, "device", "qcom", "wlan"),
 ]
-OUT_DIR = os.path.join(WORKSPACE_DIR, "out")
+# perf builds output to out-perf/ so their artifacts (system.img, *.manifest,
+# boot.img, abl.elf, build-dtb-artifacts/, ...) don't collide with debug builds
+# when copied into the same CRM on the EC servers.
+OUT_DIR = os.path.join(WORKSPACE_DIR, "out-perf" if IF_PERF_BUILD else "out")
 DEB_OUT_DIR = os.path.join(WORKSPACE_DIR, "debian_packages")
 BUILD_SCRIPT_DIR = os.path.join(WORKSPACE_DIR, "build-utils", "ubuntu")
+
+# Resolve the default output image path now that OUT_DIR (out/ or out-perf/) is
+# known. If the user explicitly passed --output-image-file it was already made
+# absolute in parse_arguments() and is left untouched.
+if not args.output_image_file:
+    args.output_image_file = os.path.join(OUT_DIR, "system.img")
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -370,7 +384,10 @@ if IF_BUILD_ABL:
 
     try:
         os.chdir(BUILD_SCRIPT_DIR)
-        subprocess.run(["./build-edk2.sh"], check=True)
+        if IF_PERF_BUILD:
+            subprocess.run(["./build-edk2.sh", "-v", "perf"], check=True)
+        else:
+            subprocess.run(["./build-edk2.sh", "-v", "debug"], check=True)
 
     except Exception as e:
         logger.critical(f"Exception during abl build : {e}")

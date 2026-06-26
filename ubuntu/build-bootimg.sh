@@ -15,7 +15,13 @@ done
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 WORKSPACE=$(dirname "$(dirname "$SCRIPT_DIR")")
 KERNEL_PLATFORM_DIR="${WORKSPACE}/kernel/kernel_platform"
-OUTPUT_DIR="${WORKSPACE}/out"
+# perf and debug builds use separate output directories so their artifacts
+# don't collide when copied into the same CRM on the EC servers.
+if [ "${BUILD_VARIANT}" = "perf" ]; then
+    OUTPUT_DIR="${WORKSPACE}/out-perf"
+else
+    OUTPUT_DIR="${WORKSPACE}/out"
+fi
 apply_patch() {
     patch=$1
     if git apply --check "${patch}" > /dev/null 2>&1; then
@@ -484,13 +490,10 @@ build_bootimg() {
     if [ "${BUILD_VARIANT}" != "perf" ]; then
         cmdline="console=ttyMSM0,115200,n8 page_owner=on${cmdline}"
     fi
-    if [ "${BUILD_VARIANT}" = "perf" ]; then
-        boot_img="${OUTPUT_DIR}/boot-perf.img"
-        cp ${KERNEL_PLATFORM_DIR}/kernel/vmlinux ${OUTPUT_DIR}/vmlinux-perf
-    else
-        boot_img="${OUTPUT_DIR}/boot.img"
-        cp ${KERNEL_PLATFORM_DIR}/kernel/vmlinux ${OUTPUT_DIR}/vmlinux
-    fi
+    # perf/debug outputs live in separate OUTPUT_DIRs (out-perf/ vs out/),
+    # so the filenames no longer need a -perf suffix.
+    boot_img="${OUTPUT_DIR}/boot.img"
+    cp ${KERNEL_PLATFORM_DIR}/kernel/vmlinux ${OUTPUT_DIR}/vmlinux
     ${WORKSPACE}/mkbootimg/mkbootimg.py --header_version 2 \
         --kernel  "${KERNEL_PLATFORM_DIR}"/kernel/arch/arm64/boot/Image \
         --dtb  "${OUTPUT_DIR}"/build-dtb-artifacts/dtbs/dtb.img \
