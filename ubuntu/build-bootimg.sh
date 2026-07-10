@@ -111,6 +111,7 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/usb/0024-dwc3-gadget-Fix-compliance-TD-9.23-compliance-issue.patch
     apply_patch ${downstream_qc_patch_path}/usb/0025-PENDING-usb-phy-qmp-combo-Update-PHY-init-sequence.patch
     apply_patch ${downstream_qc_patch_path}/usb/0026-PENDING-phy-ptn3222-Add-support-to-parse-the-param-f.patch
+    apply_patch ${downstream_qc_patch_path}/usb/0027-phy-qcom-snps-eusb2-Allow-missing-repeater-for-fw-ma.patch
     apply_patch ${downstream_qc_patch_path}/0014-mailbox-qcom-cpucp-restructure-the-cpucp-mailbox-dri.patch
     apply_patch ${downstream_qc_patch_path}/0015-scmi-support-for-scmi-vendor-protocol-and-log-driver.patch
     apply_patch ${downstream_qc_patch_path}/0016-QCLINUX-MPAM-Snapshot-of-QCOM-MPAM-Driver.patch
