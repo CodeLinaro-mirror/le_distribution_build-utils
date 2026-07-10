@@ -172,6 +172,7 @@ apdf
 camera-camx
 camera-qcx
 camera-camx-test
+#CV
 fastcv-headers 1.0.0
 fastcv-noship 1.0.0
 fastcv 1.0.0
@@ -184,3 +185,8 @@ sv-auto-headers 1.0.0
 sv-auto-headers-dev 1.0.0
 sv-auto-noship 1.0.0
 sv-auto-noship-dev 1.0.0
+qml-noship 1.0.0
+qblaze-noship 1.0.0
+qadlibs-x-headers 1.0.0
+qadlibs-x 1.0.0
+qadlibs-x-noship 1.0.0
