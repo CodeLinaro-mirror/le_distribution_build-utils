@@ -468,8 +468,8 @@ class PackageBuilder:
 
         # Create a list of all the packages (.deb, -dev.deb, -dbgsym.ddeb)
         files = os.listdir(repo_build_tmp_dir)
-        deb_files = [f for f in files if f.endswith('.deb')  and "-dev" not in f]
-        dev_files = [f for f in files if f.endswith('.deb')  and "-dev"     in f]
+        deb_files = [f for f in files if f.endswith('.deb') and not f.split('_')[0].endswith('-dev')]
+        dev_files = [f for f in files if f.endswith('.deb') and f.split('_')[0].endswith('-dev')]
         dbg_files = [f for f in files if f.endswith('.ddeb') and "-dbgsym"  in f]
 
         # Isolate all the canonical package names (i.e. remove the version and architecture from the filenames)
