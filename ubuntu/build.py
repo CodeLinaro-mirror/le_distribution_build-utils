@@ -226,7 +226,7 @@ SOURCES_DIRS = [
     # Add more directories to scan for debian packages here, e.g.:
     # os.path.join(WORKSPACE_DIR, "vendor"),
     os.path.join(WORKSPACE_DIR, "sources", "quic-qrb-ros"),
-    os.path.join(WORKSPACE_DIR, "sources", "robotics", "external"),
+    os.path.join(WORKSPACE_DIR, "sources", "robotics"),
     os.path.join(WORKSPACE_DIR, "frameworks"),
     os.path.join(WORKSPACE_DIR, "graphics"),
     os.path.join(WORKSPACE_DIR, "system"),
