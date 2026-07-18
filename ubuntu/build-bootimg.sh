@@ -488,7 +488,7 @@ build_oot_dtbo() {
     cat "${OUTPUT_DIR}/build-dtb-artifacts/dtbs"/*.dtb* > "${OUTPUT_DIR}/build-dtb-artifacts/dtbs"/dtb.img
 }
 build_bootimg() {
-    cmdline=' rootwait firmware_class.path=/firmware/vm/boot systemd.gpt_auto=0 cgroup.memory=nokmem,nosocket qcom_scm.download_mode=1 rcupdate.rcu_expedited=1 rcu_nocbs=0-17 rcupdate.rcu_normal_after_boot=0 fsck.repair=yes systemd.service_watchdogs=0 driver_async_probe=scmi-hwmon androidboot.slot_suffix=_a root=PARTLABEL=system_a modprobe.blacklist=dm-multipath systemd.machine-id=512cec5b6c9547259d2c6ff2baf84f7e net.ifnames=0 biosdevname=0'
+    cmdline=' rootwait firmware_class.path=/firmware/vm/boot systemd.gpt_auto=0 cgroup.memory=nokmem,nosocket qcom_scm.download_mode=1 rcupdate.rcu_expedited=1 rcu_nocbs=0-17 rcupdate.rcu_normal_after_boot=0 fsck.repair=yes systemd.service_watchdogs=0 driver_async_probe=scmi-hwmon root=PARTLABEL=system_a modprobe.blacklist=dm-multipath systemd.machine-id=512cec5b6c9547259d2c6ff2baf84f7e net.ifnames=0 biosdevname=0'
     if [ "${BUILD_VARIANT}" != "perf" ]; then
         cmdline="console=ttyMSM0,115200,n8 page_owner=on${cmdline}"
     fi
