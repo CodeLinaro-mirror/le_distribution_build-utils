@@ -295,6 +295,9 @@ mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='chroot "$1" systemctl enable /usr/share/systemd/tmp.mount' \
 --customize-hook='cp {self.cur_file}/01-eth0.yaml "$1/etc/netplan/01-eth0.yaml"' \
 --customize-hook='echo "PermitRootLogin yes" >> "$1/etc/ssh/sshd_config"' \
+--customize-hook='chroot "$1" systemctl disable isc-dhcp-server.service || true' \
+--customize-hook='chroot "$1" systemctl disable isc-dhcp-server6.service || true' \
+--customize-hook='chroot "$1" systemctl disable update-notifier-download.timer || true' \
 --customize-hook='[ -d "$1/lib/modules/6.6.110" ] && chroot "$1" depmod -a 6.6.110 || true' \
 --customize-hook='printf "Types: deb\nURIs: http://ports.ubuntu.com/ubuntu-ports\nSuites: noble noble-updates\nComponents: main restricted universe multiverse\nArchitectures: arm64\nTrusted: yes\n" > "$1/etc/apt/sources.list.d/ubuntu.sources" && printf "# This file is intentionally empty. See sources.list.d/ubuntu.sources\n" > "$1/etc/apt/sources.list"' \
 --customize-hook='rm -rf "$1/var/cache/man" "$1/var/lib/landscape" "$1/var/log/landscape" 2>/dev/null || true' \
