@@ -162,6 +162,7 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/qup/0042-ccu-WARN_ON-once-at-CCU_RETRY_CNT-during-GSI-pdev-lo.patch
     apply_patch ${downstream_qc_patch_path}/bluetooth/0001-Bluetooth-qca-add-support-for-QCA-automotive-BT-chip.patch
     apply_patch ${downstream_qc_patch_path}/wlan/0001-net-wireless-Enable-WEXT-legacy-support-for-kernel-6.patch
+    apply_patch ${downstream_qc_patch_path}/wlan/0002-wifi-cfg80211-ignore-non-TX-BSSs-in-per-STA-profile.patch
 }
 do_generate_base_defconfig() {
     cd "${KERNEL_PLATFORM_DIR}"
