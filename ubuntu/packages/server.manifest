@@ -98,6 +98,7 @@ nsp-stl 1.0.1
 nsp-config 1.0.1
 pfm-qcom 1.0.0
 pil-rm 1.0.2
+subsys-ramdump-util 1.0.0
 platform-config 1.0.0
 power-utils 1.0.0
 libqdss-driver 1.0.0
