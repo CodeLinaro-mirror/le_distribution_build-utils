@@ -26,6 +26,12 @@ apply_patch() {
     patch=$1
     if git apply --check "${patch}" > /dev/null 2>&1; then
         git apply "${patch}"
+    elif git apply --reverse --check "${patch}" > /dev/null 2>&1; then
+        echo "Patch already applied, skipping: ${patch}"
+    else
+        echo "ERROR: failed to apply patch: ${patch}"
+        git apply --check "${patch}"
+        exit 1
     fi
 }
 do_kernel_patch() {
