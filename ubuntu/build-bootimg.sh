@@ -113,6 +113,7 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/usb/0026-PENDING-phy-ptn3222-Add-support-to-parse-the-param-f.patch
     apply_patch ${downstream_qc_patch_path}/0014-mailbox-qcom-cpucp-restructure-the-cpucp-mailbox-dri.patch
     apply_patch ${downstream_qc_patch_path}/0015-scmi-support-for-scmi-vendor-protocol-and-log-driver.patch
+    apply_patch ${downstream_qc_patch_path}/0021-PENDING-firmware-arm_scmi-serialize-power-domain-transitions.patch
     apply_patch ${downstream_qc_patch_path}/0016-QCLINUX-MPAM-Snapshot-of-QCOM-MPAM-Driver.patch
     apply_patch ${downstream_qc_patch_path}/0017-QCLINUX-MPAM-Snapshot-of-QCOM-SLC-MPAM-Driver.patch
     apply_patch ${downstream_qc_patch_path}/0018-QCLINUX-MPAM-Add-CPU-map-partid-for-CPU-MPAM-Driver.patch
