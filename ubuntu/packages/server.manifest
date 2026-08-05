@@ -167,6 +167,7 @@ vpu-firmware 1.0.0
 video-driver 1.0.0
 vidc-test-app 1.0.0
 gstreamer1.0-plugins-vidc
+gstreamer1.0-plugins-qvconv
 #Camera
 gptp
 apdf
