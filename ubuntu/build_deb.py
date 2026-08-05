@@ -41,7 +41,8 @@ class PackageBuilder:
     def __init__(self, CHROOT_NAME, CHROOT_DIR, SOURCE_DIR, APT_SERVER_CONFIG, \
     MANIFEST_MAP=None, DEB_OUT_TEMP_DIR=None, DEB_OUT_DIR=None, DEB_OUT_DIR_APT=None, \
     DEBIAN_INSTALL_DIR_APT=None, IS_CLEANUP_ENABLED=True, IS_PREPARE_SOURCE=False, \
-    DIST= "noble", ARCH="arm64", CHROOT_SUFFIX="ubuntu", TECH_VARIANT=None, incremental=False):
+    DIST= "noble", ARCH="arm64", CHROOT_SUFFIX="ubuntu", TECH_VARIANT=None, incremental=False, \
+    PATCH_SETS=None):
         """
         Initializes the PackageBuilder instance.
 
@@ -58,6 +59,8 @@ class PackageBuilder:
         - DEBIAN_INSTALL_DIR_APT (str, optional): Directory for APT installation files.
         - IS_CLEANUP_ENABLED (bool, optional): Flag to enable cleanup of the mount directory.
         - IS_PREPARE_SOURCE (bool, optional): If True, prepares the source directory before building. Defaults to False.
+        - PATCH_SETS (list, optional): Conditional patch set names. For each name, patches under
+          <project>/patches/<name>/*.patch are applied before the package is built.
         """
         self.CHROOT_NAME = CHROOT_NAME
         self.CHROOT_DIR  = CHROOT_DIR
@@ -74,6 +77,7 @@ class PackageBuilder:
         self.DEBIAN_INSTALL_DIR_APT = DEBIAN_INSTALL_DIR_APT
         self.IS_PREPARE_SOURCE = IS_PREPARE_SOURCE
         self.TECH_VARIANT = TECH_VARIANT
+        self.PATCH_SETS = PATCH_SETS or []
         self.incremental = incremental
         self.build_state = {}
         self.rebuilt_packages = set()
@@ -298,6 +302,71 @@ class PackageBuilder:
         self._save_build_state()
         logger.info(f"[incremental] Bootstrap complete: {recorded}/{len(self.packages)} packages recorded")
 
+    def apply_conditional_patches(self):
+        """
+        Applies conditional patches to every loaded package's source tree.
+
+        For each patch set name in self.PATCH_SETS, patches matching
+        <repo_path>/patches/<name>/*.patch are applied in sorted filename order.
+
+        A patch that is already applied is skipped (detected via `git apply --reverse
+        --check`), which keeps repeated local builds working. A patch that genuinely
+        does not apply is a fatal error, since silently building an unpatched package
+        would produce a wrongly-behaving deb that is hard to diagnose.
+
+        Raises:
+        -------
+        - PackageBuildError: If a patch cannot be applied and is not already applied.
+        """
+        if not self.PATCH_SETS:
+            return
+
+        applied_total = 0
+        skipped_total = 0
+
+        for package_info in self.packages.values():
+            repo_path = package_info["repo_path"]
+            repo_name = package_info["repo_name"]
+
+            for patch_set in self.PATCH_SETS:
+                patch_dir = Path(repo_path) / "patches" / patch_set
+                if not patch_dir.is_dir():
+                    continue
+
+                patches = sorted(patch_dir.glob("*.patch"))
+                if not patches:
+                    logger.debug(f"No patches in {patch_dir}")
+                    continue
+
+                logger.info(f"Applying '{patch_set}' patch set to {repo_name}: {len(patches)} patch(es)")
+                for patch in patches:
+                    # Already applied (e.g. a repeated local build) -> skip, not an error.
+                    reverse_check = run_command_for_result(
+                        f"git -C {repo_path} apply --reverse --check {patch}"
+                    )
+                    if reverse_check['returncode'] == 0:
+                        logger.info(f"  [skip] already applied: {patch.name}")
+                        skipped_total += 1
+                        continue
+
+                    forward_check = run_command_for_result(
+                        f"git -C {repo_path} apply --check {patch}"
+                    )
+                    if forward_check['returncode'] != 0:
+                        raise PackageBuildError(
+                            f"Patch does not apply to {repo_name}: {patch}\n"
+                            f"{forward_check['output']}"
+                        )
+
+                    run_command(f"git -C {repo_path} apply {patch}")
+                    logger.info(f"  [ok] applied: {patch.name}")
+                    applied_total += 1
+
+        logger.info(
+            f"Conditional patches ({','.join(self.PATCH_SETS)}): "
+            f"{applied_total} applied, {skipped_total} already applied"
+        )
+
     def load_packages(self):
         """Load package metadata from build_config.py and fetch dependencies from control files."""
         source_dirs = self.SOURCE_DIR if isinstance(self.SOURCE_DIR, list) else [self.SOURCE_DIR]
@@ -320,6 +389,9 @@ class PackageBuilder:
                         "packages": pkg_names,
                         "visited": False
                     }
+
+        # Patch before incremental bookkeeping so source hashes reflect the patched tree.
+        self.apply_conditional_patches()
 
         if self.incremental and self.DEB_OUT_DIR and not self.build_state:
             self._auto_bootstrap()

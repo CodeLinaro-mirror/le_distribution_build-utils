@@ -128,6 +128,9 @@ def parse_arguments():
                         help='Full build perf variant: builds perf kernel (boot.img) and system.img under out-perf/')
     parser.add_argument('--perf', action='store_true', default=False,
                         help='Build the perf variant; all outputs go to out-perf/ instead of out/')
+    parser.add_argument('--ddm', action='store_true', default=False,
+                        help='Apply the ddm patch set: for every package, patches under '
+                             '<project>/patches/ddm/*.patch are applied before building')
 
     # Deprecated
     parser.add_argument('--chroot-name', type=str, required=False,
@@ -211,6 +214,12 @@ IF_RELEASE_PREP_URL = args.release_prep_url
 IF_FLAT_META = args.flat_meta
 IS_CLEANUP_ENABLED = not args.nocleanup
 IS_PREPARE_SOURCE = args.prepare_sources
+
+# Conditional patch sets applied to package sources during --gen-debians.
+# Each name maps to <project>/patches/<name>/*.patch.
+PATCH_SETS = []
+if args.ddm:
+    PATCH_SETS.append("ddm")
 
 TECH_VARIANT = args.tech
 
@@ -465,7 +474,7 @@ if IF_GEN_DEBIANS or IS_PREPARE_SOURCE :
             DEBIAN_INSTALL_DIR_APT = build_deb_package_gz(DEBIAN_INSTALL_DIR, start_server=True)
 
         # Initialize the PackageBuilder to load packages
-        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIRS, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE, TECH_VARIANT=TECH_VARIANT, incremental=True)
+        builder = PackageBuilder(CHROOT_NAME, CHROOT_DIR, SOURCES_DIRS, APT_SERVER_CONFIG, MANIFEST_MAP, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEB_OUT_DIR_APT, DEBIAN_INSTALL_DIR_APT, IS_CLEANUP_ENABLED, IS_PREPARE_SOURCE, TECH_VARIANT=TECH_VARIANT, incremental=True, PATCH_SETS=PATCH_SETS)
         builder._start_time = _phase_start
         builder.load_packages()
 
