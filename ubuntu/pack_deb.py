@@ -47,8 +47,11 @@ if _PACK_BIN_DIR not in os.environ.get("PATH", ""):
 # Workspace-relative projects that may ship their own packages/ddm/<flavor>.manifest,
 # for packages tied to that project's own dependency chain rather than a generic
 # library cleanup. Merged alongside the build-utils DDM exclude list.
+# Paths point at the packaged debian source root (where debian/ lives), since that
+# manifest is also shipped inside the .deb for install-ddm-packages.sh to read at
+# runtime — it must live inside the tree dpkg-source actually tars up.
 DDM_MANIFEST_PROJECTS = [
-    os.path.join("sources", "robotics-sdk", "qirp-sdk"),
+    os.path.join("sources", "robotics-sdk", "qirp-sdk", "qirp-sdk"),
 ]
 
 class PackagePacker:
