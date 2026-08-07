@@ -306,7 +306,7 @@ mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='tar -C "$1" --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./run -cf {rootfs_tar} .' \
 --setup-hook='rm -rf "$1/var/lib/apt/lists" "$1/var/cache/apt" "$1/var/cache/man" "$1/var/lib/landscape" "$1/var/log/landscape" "$1/home" 2>/dev/null; mkdir -p "$1/var/lib/apt/lists/partial" "$1/var/cache/apt" "$1/home"; true' \
 --setup-hook='echo /dev/disk/by-partlabel/system / ext4 defaults,x-systemd.growfs 0 1 > "$1/etc/fstab"' \
---setup-hook='echo PARTLABEL=modem /firmware vfat defaults,ro >> "$1/etc/fstab"' \
+--setup-hook='echo /usr/lib/firmware/qcom  /firmware  none  bind,x-systemd.requires=usr-lib-firmware-qcom.mount  0 0 >> "$1/etc/fstab"' \
 """
 
         # Install ros2-apt-source via --essential-hook. This hook runs after essential
