@@ -268,6 +268,15 @@ except subprocess.CalledProcessError as e:
 except FileNotFoundError:
     print("camera camx copy script not found")
 
+fetch_cntvct_log_script_path = os.path.join(current_dir, 'fetch-cntvct-log.sh')
+
+try:
+    subprocess.run(['bash', fetch_cntvct_log_script_path], check=True, cwd=current_dir)
+except subprocess.CalledProcessError as e:
+    print(f"execute cntvct-log fetch script failed : {e}")
+except FileNotFoundError:
+    print("cntvct-log fetch script not found")
+
 
 OSS_DEB_OUT_DIR = os.path.join(DEB_OUT_DIR, "oss")
 QC_FOLDER = os.path.join(WORKSPACE_DIR, "qc")
