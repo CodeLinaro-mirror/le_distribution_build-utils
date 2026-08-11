@@ -302,69 +302,136 @@ class PackageBuilder:
         self._save_build_state()
         logger.info(f"[incremental] Bootstrap complete: {recorded}/{len(self.packages)} packages recorded")
 
+    @staticmethod
+    def _find_patches_root(repo_path):
+        """
+        Locates the 'patches' directory covering a package.
+
+        Multi-package repos (one git repo, several debian/ subpackages, e.g.
+        ocr_service or qirp-sdk) keep a single patches/ directory at the repo
+        root, shared by all their debian/ subpackages, rather than one next
+        to each debian/ dir. This walks upward from repo_path, checking each
+        directory for a patches/ dir, and stops as soon as one is found or
+        after checking the enclosing git repository root (a directory
+        containing .git) — whichever comes first. This keeps the search from
+        wandering into an unrelated patches/ directory further up the
+        workspace tree.
+
+        Returns:
+        --------
+        - tuple(Path, Path): (base_dir, patches_root) if found, else None.
+        """
+        current = Path(repo_path).resolve()
+        for candidate in [current, *current.parents]:
+            patches_root = candidate / "patches"
+            if patches_root.is_dir():
+                return candidate, patches_root
+            if (candidate / ".git").exists():
+                break
+        return None
+
     def apply_conditional_patches(self):
         """
-        Applies conditional patches to every loaded package's source tree.
+        Reconciles every loaded package's source tree with self.PATCH_SETS.
 
-        For each patch set name in self.PATCH_SETS, patches matching
-        <repo_path>/patches/<name>/*.patch are applied in sorted filename order.
+        Each package's patches/ directory (found via _find_patches_root(),
+        shared across debian/ subpackages of the same repo) can hold several
+        patch-set subdirectories, e.g. patches/ddm/*.patch. For each one found:
+        - If its name is in self.PATCH_SETS, its patches are applied (in
+          sorted filename order) unless already applied.
+        - Otherwise, it is reverted if currently applied.
 
-        A patch that is already applied is skipped (detected via `git apply --reverse
-        --check`), which keeps repeated local builds working. A patch that genuinely
-        does not apply is a fatal error, since silently building an unpatched package
-        would produce a wrongly-behaving deb that is hard to diagnose.
+        The revert half matters for incremental builds: the previous build's
+        flags are not known ahead of time, only the source tree's current
+        state is. Say a build ran with --ddm, applying patches/ddm/*; a later
+        build without --ddm must not leave those patches applied, or the
+        source tree (and therefore the incremental source hash computed
+        right after this method returns) would still match the ddm-patched
+        state, and the non-ddm build would wrongly skip rebuilding a package
+        it needs to build unpatched.
+
+        Each (base_dir, patch_set) pair is only processed once per run, even
+        when several packages in self.packages share the same patches/ dir.
+
+        A patch that is already applied/reverted is a no-op, not an error
+        (detected via `git apply --check` / `--reverse --check`), which keeps
+        repeated local builds working. A patch that genuinely fails to apply
+        is fatal, since silently building an unpatched package would produce
+        a wrongly-behaving deb that is hard to diagnose.
 
         Raises:
         -------
-        - PackageBuildError: If a patch cannot be applied and is not already applied.
+        - PackageBuildError: If a requested patch cannot be applied and is not already applied.
         """
-        if not self.PATCH_SETS:
-            return
-
         applied_total = 0
         skipped_total = 0
+        reverted_total = 0
+        processed_bases = set()
 
         for package_info in self.packages.values():
             repo_path = package_info["repo_path"]
-            repo_name = package_info["repo_name"]
 
-            for patch_set in self.PATCH_SETS:
-                patch_dir = Path(repo_path) / "patches" / patch_set
-                if not patch_dir.is_dir():
-                    continue
+            found = self._find_patches_root(repo_path)
+            if found is None:
+                continue
+            patch_base_dir, patches_root = found
 
-                patches = sorted(patch_dir.glob("*.patch"))
+            if str(patch_base_dir) in processed_bases:
+                continue
+            processed_bases.add(str(patch_base_dir))
+
+            for patch_set_dir in sorted(p for p in patches_root.iterdir() if p.is_dir()):
+                patch_set = patch_set_dir.name
+                patches = sorted(patch_set_dir.glob("*.patch"))
                 if not patches:
-                    logger.debug(f"No patches in {patch_dir}")
+                    logger.debug(f"No patches in {patch_set_dir}")
                     continue
 
-                logger.info(f"Applying '{patch_set}' patch set to {repo_name}: {len(patches)} patch(es)")
-                for patch in patches:
-                    # Already applied (e.g. a repeated local build) -> skip, not an error.
-                    reverse_check = run_command_for_result(
-                        f"git -C {repo_path} apply --reverse --check {patch}"
-                    )
-                    if reverse_check['returncode'] == 0:
-                        logger.info(f"  [skip] already applied: {patch.name}")
-                        skipped_total += 1
-                        continue
-
-                    forward_check = run_command_for_result(
-                        f"git -C {repo_path} apply --check {patch}"
-                    )
-                    if forward_check['returncode'] != 0:
-                        raise PackageBuildError(
-                            f"Patch does not apply to {repo_name}: {patch}\n"
-                            f"{forward_check['output']}"
+                if patch_set in self.PATCH_SETS:
+                    logger.info(f"Applying '{patch_set}' patch set from {patch_set_dir}: {len(patches)} patch(es)")
+                    for patch in patches:
+                        # Already applied (e.g. a repeated local build) -> skip, not an error.
+                        reverse_check = run_command_for_result(
+                            f"git -C {patch_base_dir} apply --reverse --check {patch}"
                         )
+                        if reverse_check['returncode'] == 0:
+                            logger.info(f"  [skip] already applied: {patch.name}")
+                            skipped_total += 1
+                            continue
 
-                    run_command(f"git -C {repo_path} apply {patch}")
-                    logger.info(f"  [ok] applied: {patch.name}")
-                    applied_total += 1
+                        forward_check = run_command_for_result(
+                            f"git -C {patch_base_dir} apply --check {patch}"
+                        )
+                        if forward_check['returncode'] != 0:
+                            raise PackageBuildError(
+                                f"Patch does not apply under {patch_base_dir}: {patch}\n"
+                                f"{forward_check['output']}"
+                            )
+
+                        run_command(f"git -C {patch_base_dir} apply {patch}")
+                        logger.info(f"  [ok] applied: {patch.name}")
+                        applied_total += 1
+                else:
+                    # Not requested this run. If a prior run left it applied
+                    # (e.g. --ddm was used then, not now), revert it so the
+                    # source tree reflects a build without this patch set.
+                    # Revert in reverse filename order, undoing the most
+                    # recently applied patch of the series first.
+                    for patch in reversed(patches):
+                        reverse_check = run_command_for_result(
+                            f"git -C {patch_base_dir} apply --reverse --check {patch}"
+                        )
+                        if reverse_check['returncode'] != 0:
+                            # Not applied -> nothing to revert.
+                            continue
+
+                        run_command(f"git -C {patch_base_dir} apply --reverse {patch}")
+                        logger.info(f"  [revert] '{patch_set}' patch set not requested, reverted: {patch.name}")
+                        reverted_total += 1
 
         logger.info(
-            f"Conditional patches ({','.join(self.PATCH_SETS)}): "
-            f"{applied_total} applied, {skipped_total} already applied"
+            f"Conditional patches ({','.join(self.PATCH_SETS) or 'none'}): "
+            f"{applied_total} applied, {skipped_total} already applied, {reverted_total} reverted"
         )
 
     def load_packages(self):
