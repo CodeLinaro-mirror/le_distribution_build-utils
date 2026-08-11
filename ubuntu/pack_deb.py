@@ -307,6 +307,7 @@ mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --setup-hook='rm -rf "$1/var/lib/apt/lists" "$1/var/cache/apt" "$1/var/cache/man" "$1/var/lib/landscape" "$1/var/log/landscape" "$1/home" 2>/dev/null; mkdir -p "$1/var/lib/apt/lists/partial" "$1/var/cache/apt" "$1/home"; true' \
 --setup-hook='echo /dev/disk/by-partlabel/system / ext4 defaults,x-systemd.growfs 0 1 > "$1/etc/fstab"' \
 --setup-hook='echo /usr/lib/firmware/qcom  /firmware  none  bind,x-systemd.requires=usr-lib-firmware-qcom.mount  0 0 >> "$1/etc/fstab"' \
+--setup-hook='mkdir -p "$1/etc/systemd/network" && printf "[Match]\nPath=platform-1a00000.ethernet\n[Link]\nName=eth0\n" > "$1/etc/systemd/network/10-eth0-soc.link" && printf "[Match]\nPath=platform-1a80000.ethernet\n[Link]\nName=eth1\n" > "$1/etc/systemd/network/11-eth1-soc.link" && printf "[Match]\nPath=platform-5000000000.pci-pci-0000:03:00.0\n[Link]\nName=lan0\n" > "$1/etc/systemd/network/12-lan0-pcie.link" && printf "[Match]\nPath=platform-5000000000.pci-pci-0000:04:00.0\n[Link]\nName=lan1\n" > "$1/etc/systemd/network/13-lan1-pcie.link" && printf "[Match]\nPath=platform-5000000000.pci-pci-0000:05:00.0\n[Link]\nName=lan2\n" > "$1/etc/systemd/network/14-lan2-pcie.link" && printf "[Match]\nPath=platform-5000000000.pci-pci-0000:06:00.0\n[Link]\nName=lan3\n" > "$1/etc/systemd/network/15-lan3-pcie.link"' \
 """
 
         # Install ros2-apt-source via --essential-hook. This hook runs after essential
