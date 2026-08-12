@@ -386,6 +386,8 @@ if IF_BUILD_KERNEL:
         os.chdir(BUILD_SCRIPT_DIR)
         if IF_PERF_BUILD:
             subprocess.run(["./build-bootimg.sh", "-v", "perf"], check=True)
+        elif args.ddm:
+            subprocess.run(["./build-bootimg.sh", "-v", "ddm"], check=True)
         else:
             subprocess.run(["./build-bootimg.sh", "-v", "debug"], check=True)
 
@@ -409,6 +411,8 @@ if IF_BUILD_ABL:
         os.chdir(BUILD_SCRIPT_DIR)
         if IF_PERF_BUILD:
             subprocess.run(["./build-edk2.sh", "-v", "perf"], check=True)
+        elif args.ddm:
+            subprocess.run(["./build-edk2.sh", "-v", "ddm"], check=True)
         else:
             subprocess.run(["./build-edk2.sh", "-v", "debug"], check=True)
 

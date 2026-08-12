@@ -15,13 +15,13 @@ done
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 WORKSPACE=$(dirname "$(dirname "$SCRIPT_DIR")")
 KERNEL_PLATFORM_DIR="${WORKSPACE}/kernel/kernel_platform"
-# perf and debug builds use separate output directories so their artifacts
+# perf/ddm/debug builds use separate output directories so their artifacts
 # don't collide when copied into the same CRM on the EC servers.
-if [ "${BUILD_VARIANT}" = "perf" ]; then
-    OUTPUT_DIR="${WORKSPACE}/out-perf"
-else
-    OUTPUT_DIR="${WORKSPACE}/out"
-fi
+case "${BUILD_VARIANT}" in
+    perf) OUTPUT_DIR="${WORKSPACE}/out-perf" ;;
+    ddm)  OUTPUT_DIR="${WORKSPACE}/out-ddm"  ;;
+    *)    OUTPUT_DIR="${WORKSPACE}/out"       ;;
+esac
 apply_patch() {
     patch=$1
     if git apply --check "${patch}" > /dev/null 2>&1; then
@@ -610,7 +610,7 @@ reorganize_kernel_deb() {
 
 mkdir -p "${OUTPUT_DIR}"
 if [ -z "${BUILD_VARIANT}" ]; then
-    echo "Error: -v <variant> is required (debug or perf)"
+    echo "Error: -v <variant> is required (debug, perf, or ddm)"
     exit 1
 fi
 if [[ $PACKAGE_ONLY = false ]];then

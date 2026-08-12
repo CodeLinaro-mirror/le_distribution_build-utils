@@ -20,8 +20,8 @@
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 WORKSPACE=$(dirname "$(dirname "$SCRIPT_DIR")")
 
-# Build variant (debug or perf). perf outputs go to a separate directory so
-# they don't collide with debug artifacts when copied into the same CRM.
+# Build variant (debug, perf, or ddm). Each outputs to a separate directory so
+# they don't collide with each other when copied into the same CRM.
 BUILD_VARIANT="debug"
 while getopts "v:" opt; do
   case $opt in
@@ -35,11 +35,11 @@ EDK2_DIR="${WORKSPACE}/bootable/bootloader/edk2"
 
 # Build/output directories
 BUILD_DIR="${EDK2_DIR}/out"
-if [ "${BUILD_VARIANT}" = "perf" ]; then
-    OUTPUT_DIR="${WORKSPACE}/out-perf"
-else
-    OUTPUT_DIR="${WORKSPACE}/out"
-fi
+case "${BUILD_VARIANT}" in
+    perf) OUTPUT_DIR="${WORKSPACE}/out-perf" ;;
+    ddm)  OUTPUT_DIR="${WORKSPACE}/out-ddm"  ;;
+    *)    OUTPUT_DIR="${WORKSPACE}/out"       ;;
+esac
 UNSIGNED_ABL="${OUTPUT_DIR}/abl-unsigned.elf"
 SIGNED_ABL="${OUTPUT_DIR}/abl.elf"
 
