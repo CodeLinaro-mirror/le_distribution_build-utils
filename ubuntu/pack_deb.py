@@ -44,8 +44,18 @@ _PACK_BIN_DIR = os.path.join(_PACK_SCRIPT_DIR, "bin")
 if _PACK_BIN_DIR not in os.environ.get("PATH", ""):
     os.environ["PATH"] = _PACK_BIN_DIR + ":" + os.environ.get("PATH", "")
 
+# Workspace-relative projects that may ship their own packages/ddm/<flavor>.manifest,
+# for packages tied to that project's own dependency chain rather than a generic
+# library cleanup. Merged alongside the build-utils DDM exclude list.
+# Paths point at the packaged debian source root (where debian/ lives), since that
+# manifest is also shipped inside the .deb for install-ddm-packages.sh to read at
+# runtime — it must live inside the tree dpkg-source actually tars up.
+DDM_MANIFEST_PROJECTS = [
+    os.path.join("sources", "robotics-sdk", "qirp-sdk", "qirp-sdk"),
+]
+
 class PackagePacker:
-    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED,PACKAGES_MANIFEST_PATH=None,QC_FOLDER=None,IF_RELEASE_ENABLED=False,TECH_VARIANT=None,BASE_MANIFEST_PATH=None):
+    def __init__(self, MOUNT_DIR, IMAGE_TYPE, VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED,PACKAGES_MANIFEST_PATH=None,QC_FOLDER=None,IF_RELEASE_ENABLED=False,TECH_VARIANT=None,BASE_MANIFEST_PATH=None,IF_DDM=False,WORKSPACE_DIR=None):
         """
         Initializes the PackagePacker instance.
 
@@ -79,9 +89,11 @@ class PackagePacker:
         self.OUT_DIR = OUT_DIR
         self.TEMP_DIR = TEMP_DIR
         self.OUT_SYSTEM_IMG = OUT_SYSTEM_IMG
+        self.WORKSPACE_DIR = WORKSPACE_DIR
         self.PACKAGES_MANIFEST_PATH = PACKAGES_MANIFEST_PATH
         self.qc_folder = QC_FOLDER
         self.IS_RELEASE_ENABLED = IF_RELEASE_ENABLED
+        self.IS_DDM_ENABLED = IF_DDM
         self.TECH_VARIANT = TECH_VARIANT
         if self.TECH_VARIANT in SNAP_SHOT_TABLE.keys():
             self.TECH_DEBIAN_MIRROR = SNAP_SHOT_TABLE.get(TECH_VARIANT).get("mirror")
@@ -198,6 +210,33 @@ class PackagePacker:
                             f"{len(self.QCOM_PINNED_PACKAGES)} with version pinning")
         else:
             logger.debug(f"No custom manifest found at: {custom_manifest_path}")
+
+        # 4b. If building for DDM, drop packages listed in packages/ddm/<flavor>.manifest.
+        # These stay in the image for formal builds; DDM release strips them out.
+        # Projects may also ship their own packages/ddm/<flavor>.manifest for packages
+        # tied to their own dependency chain (e.g. sources/robotics-sdk/qirp-sdk);
+        # those are merged in alongside the build-utils list.
+        self.DDM_BLACKLIST = set()
+        if self.IS_DDM_ENABLED:
+            ddm_manifest_paths = [os.path.join(self.cur_file, "packages", "ddm", f"{self.IMAGE_TYPE}.manifest")]
+            if self.WORKSPACE_DIR:
+                for project in DDM_MANIFEST_PROJECTS:
+                    ddm_manifest_paths.append(
+                        os.path.join(self.WORKSPACE_DIR, project, "packages", "ddm", f"{self.IMAGE_TYPE}.manifest")
+                    )
+
+            for ddm_exclude_path in ddm_manifest_paths:
+                if not os.path.exists(ddm_exclude_path):
+                    logger.debug(f"No DDM exclude manifest found at: {ddm_exclude_path}")
+                    continue
+                ddm_excludes = {deb['package'] for deb in parse_debs_manifest(ddm_exclude_path)}
+                self.DDM_BLACKLIST |= ddm_excludes
+                before_count = len(self.DEBS)
+                self.DEBS = [deb for deb in self.DEBS if deb['package'] not in ddm_excludes]
+                for pkg in ddm_excludes:
+                    self.QCOM_PINNED_PACKAGES.pop(pkg, None)
+                logger.info(f"DDM build: excluded {before_count - len(self.DEBS)} package(s) "
+                            f"listed in {ddm_exclude_path}")
 
         # 5. Merge from qc_folder if provided
         if self.qc_folder:
@@ -415,6 +454,41 @@ noble \
 
         # Extract the package manifest from the rootfs dpkg database.
         self.extract_manifest(self.IMAGE_TYPE)
+
+        # DDM builds must never ship a blacklisted package, even if some other
+        # installed package pulled it back in transitively (--include only
+        # controls direct inclusion, not what apt resolves as a dependency).
+        self.check_ddm_blacklist()
+
+    def check_ddm_blacklist(self):
+        """
+        Fails the build if any DDM-blacklisted package ended up installed in the
+        rootfs, regardless of how it got there (explicit --include or pulled in
+        transitively as a dependency of another package).
+
+        Raises:
+        -------
+        - Exception: If one or more blacklisted packages are installed.
+        """
+        if not self.DDM_BLACKLIST:
+            return
+        logger.info(f"checking ddm image: {self.OUT_SYSTEM_IMG}")
+        command = (
+            f"dpkg-query --admindir={self.MOUNT_DIR}/var/lib/dpkg -W -f='${{Package}}\\n'"
+        )
+        result = run_command_for_result(command)
+        if result['returncode'] != 0:
+            raise Exception(f"Failed to query installed packages for DDM blacklist check: {result['output']}")
+
+        installed = set(result['output'].split())
+        violations = sorted(installed & self.DDM_BLACKLIST)
+        if violations:
+            logger.info(f"have issue: {self.OUT_SYSTEM_IMG}")
+            raise Exception(
+                "DDM blacklist violation: the following package(s) are installed in the "
+                f"built image despite being excluded for DDM: {', '.join(violations)}"
+            )
+        logger.info(f"DDM blacklist check passed: none of {len(self.DDM_BLACKLIST)} excluded package(s) are installed.")
 
     def extract_manifest(self, flavor):
         """

@@ -567,7 +567,7 @@ if IF_PACK_IMAGE:
             cleanup_directory(rootfs_extracted_leftover)
 
         create_new_directory(MOUNT_DIR)
-        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH,QC_FOLDER,IF_RELEASE_ENABLED,TECH_VARIANT=TECH_VARIANT,BASE_MANIFEST_PATH=(args.base_manifest_path if args.base_manifest_path else None))
+        packer = PackagePacker(MOUNT_DIR, IMAGE_TYPE, PACK_VARIANT, OUT_DIR, OUT_SYSTEM_IMG, APT_SERVER_CONFIG, DEB_OUT_TEMP_DIR, DEB_OUT_DIR, DEBIAN_INSTALL_DIR, IS_CLEANUP_ENABLED, PACKAGES_MANIFEST_PATH,QC_FOLDER,IF_RELEASE_ENABLED,TECH_VARIANT=TECH_VARIANT,BASE_MANIFEST_PATH=(args.base_manifest_path if args.base_manifest_path else None),IF_DDM=args.ddm,WORKSPACE_DIR=WORKSPACE_DIR)
         files_check = glob.glob(os.path.join(KERNEL_DEB_OUT_DIR, LINUX_MODULES_DEB))
         if len(files_check) == 0:
             logger.warning(f"No files matching {LINUX_MODULES_DEB} exist in {KERNEL_DEB_OUT_DIR}. Pulling it from pkg.qualcomm.com")
