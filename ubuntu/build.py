@@ -110,7 +110,8 @@ def parse_arguments():
                         help='Path or URL to base manifest file')
     parser.add_argument('--output-image-file', type=str, required=False,
                         help='Output image path. Defaults to <workspace>/out/system.img '
-                             '(or <workspace>/out-perf/system.img for perf builds).',
+                             '(<workspace>/out-perf/system.img for perf builds, '
+                             'or <workspace>/out-ddm/system.img for ddm builds).',
                         default=None)
     parser.add_argument('--package', type=str, required=False,
                         help='Package to build')
@@ -130,7 +131,8 @@ def parse_arguments():
                         help='Build the perf variant; all outputs go to out-perf/ instead of out/')
     parser.add_argument('--ddm', action='store_true', default=False,
                         help='Apply the ddm patch set: for every package, patches under '
-                             '<project>/patches/ddm/*.patch are applied before building')
+                             'patches/ddm/*.patch (found at the package debian/ dir or an '
+                             'ancestor up to its enclosing git repo root) are applied before building')
 
     # Deprecated
     parser.add_argument('--chroot-name', type=str, required=False,
@@ -149,8 +151,8 @@ def parse_arguments():
 
     # If the user explicitly provided --output-image-file as a relative path,
     # resolve it against the workspace. If it was not provided (None), the final
-    # path is resolved later against OUT_DIR (out/ or out-perf/) so perf builds
-    # land in out-perf/system.img.
+    # path is resolved later against OUT_DIR (out/, out-perf/, or out-ddm/) so
+    # perf/ddm builds land in their own output directory.
     if args.output_image_file and not os.path.isabs(args.output_image_file):
         args.output_image_file = os.path.join(args.workspace, args.output_image_file)
 
@@ -252,14 +254,17 @@ SOURCES_DIRS = [
 ]
 # perf builds output to out-perf/ so their artifacts (system.img, *.manifest,
 # boot.img, abl.elf, build-dtb-artifacts/, ...) don't collide with debug builds
-# when copied into the same CRM on the EC servers.
-OUT_DIR = os.path.join(WORKSPACE_DIR, "out-perf" if IF_PERF_BUILD else "out")
+# when copied into the same CRM on the EC servers. Likewise, ddm builds output
+# to out-ddm/ so they don't collide with non-ddm artifacts.
+if IF_PERF_BUILD and args.ddm:
+    logger.warning("Both --perf and --ddm were passed; using out-ddm/ for output.")
+OUT_DIR = os.path.join(WORKSPACE_DIR, "out-ddm" if args.ddm else "out-perf" if IF_PERF_BUILD else "out")
 DEB_OUT_DIR = os.path.join(WORKSPACE_DIR, "debian_packages")
 BUILD_SCRIPT_DIR = os.path.join(WORKSPACE_DIR, "build-utils", "ubuntu")
 
-# Resolve the default output image path now that OUT_DIR (out/ or out-perf/) is
-# known. If the user explicitly passed --output-image-file it was already made
-# absolute in parse_arguments() and is left untouched.
+# Resolve the default output image path now that OUT_DIR (out/, out-perf/, or
+# out-ddm/) is known. If the user explicitly passed --output-image-file it was
+# already made absolute in parse_arguments() and is left untouched.
 if not args.output_image_file:
     args.output_image_file = os.path.join(OUT_DIR, "system.img")
 
@@ -381,6 +386,8 @@ if IF_BUILD_KERNEL:
         os.chdir(BUILD_SCRIPT_DIR)
         if IF_PERF_BUILD:
             subprocess.run(["./build-bootimg.sh", "-v", "perf"], check=True)
+        elif args.ddm:
+            subprocess.run(["./build-bootimg.sh", "-v", "ddm"], check=True)
         else:
             subprocess.run(["./build-bootimg.sh", "-v", "debug"], check=True)
 
@@ -404,6 +411,8 @@ if IF_BUILD_ABL:
         os.chdir(BUILD_SCRIPT_DIR)
         if IF_PERF_BUILD:
             subprocess.run(["./build-edk2.sh", "-v", "perf"], check=True)
+        elif args.ddm:
+            subprocess.run(["./build-edk2.sh", "-v", "ddm"], check=True)
         else:
             subprocess.run(["./build-edk2.sh", "-v", "debug"], check=True)
 
@@ -625,7 +634,7 @@ if IF_PACK_IMAGE:
 
 if IF_FLAT_META:
     try:
-        create_flat_meta(PACK_VARIANT, IMAGE_TYPE, TARGET_HW, WORKSPACE_DIR)
+        create_flat_meta(PACK_VARIANT, IMAGE_TYPE, TARGET_HW, WORKSPACE_DIR, out_dir=OUT_DIR)
     except Exception as e:
         logger.error(e)
         ERROR_EXIT_BUILD = True

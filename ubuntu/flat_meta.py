@@ -6,14 +6,14 @@ import subprocess
 import tarfile
 from helpers import logger
 
-def create_flat_meta(pack_variant, flavor, target_hw, workspace):
+def create_flat_meta(pack_variant, flavor, target_hw, workspace, out_dir=None):
     board_specific_path = os.path.join(workspace, "sources/modem-apis/qclinux/Ubuntu_NHLOS/")
     inc_file = os.path.join(board_specific_path, f"firmware-{target_hw}.inc")
     if not os.path.isfile(inc_file):
         raise FileNotFoundError(f"INC file not found: {inc_file}")
 
     output_files = ["system.img", "efi.bin", "dtb.bin"]
-    output_dir = os.path.join(workspace, "out")
+    output_dir = out_dir if out_dir else os.path.join(workspace, "out")
     # Check for missing files
     missing_files = [f for f in output_files if not os.path.isfile(os.path.join(output_dir, f))]
 
