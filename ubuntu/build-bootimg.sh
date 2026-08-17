@@ -168,6 +168,7 @@ do_kernel_patch() {
     apply_patch ${downstream_qc_patch_path}/qup/0041-i2c-Update-clock-cycle-formula-per-latest-HPG-specif.patch
     apply_patch ${downstream_qc_patch_path}/qup/0042-ccu-WARN_ON-once-at-CCU_RETRY_CNT-during-GSI-pdev-lo.patch
     apply_patch ${downstream_qc_patch_path}/bluetooth/0001-Bluetooth-qca-add-support-for-QCA-automotive-BT-chip.patch
+    apply_patch ${downstream_qc_patch_path}/bluetooth/0002-Bluetooth-hci_qca-Fix-duplicate-dump-and-add-uevent-.patch
     apply_patch ${downstream_qc_patch_path}/wlan/0001-net-wireless-Enable-WEXT-legacy-support-for-kernel-6.patch
     apply_patch ${downstream_qc_patch_path}/qup/0043-i2c-Update-the-I2C-clock-counter-values-for-37.5MHz-.patch
     apply_patch ${downstream_qc_patch_path}/qup/0044-ccu-Add-support-to-configure-trigger-type-in-GSI-ch-.patch
