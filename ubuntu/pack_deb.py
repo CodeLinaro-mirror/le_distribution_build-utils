@@ -332,8 +332,8 @@ mmdebstrap --verbose --variant=apt --logfile={log_file} \
 --customize-hook='chroot "$1" useradd -m -s /bin/bash -p $(openssl passwd -6 "qc-ubuntu") qc-ubuntu' \
 --customize-hook='chroot "$1" usermod -aG sudo qc-ubuntu' \
 --customize-hook='chroot "$1" systemctl enable /usr/share/systemd/tmp.mount' \
---customize-hook='cp {self.cur_file}/01-eth0.yaml "$1/etc/netplan/01-eth0.yaml"' \
---customize-hook='echo "PermitRootLogin yes" >> "$1/etc/ssh/sshd_config"' \
+--customize-hook='mkdir -p "$1/etc/netplan" && cp {self.cur_file}/01-eth0.yaml "$1/etc/netplan/01-eth0.yaml"' \
+--customize-hook='[ -f "$1/etc/ssh/sshd_config" ] && echo "PermitRootLogin yes" >> "$1/etc/ssh/sshd_config" || true' \
 --customize-hook='chroot "$1" systemctl disable isc-dhcp-server.service || true' \
 --customize-hook='chroot "$1" systemctl disable isc-dhcp-server6.service || true' \
 --customize-hook='chroot "$1" systemctl disable update-notifier-download.timer || true' \
