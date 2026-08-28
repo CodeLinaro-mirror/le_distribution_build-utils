@@ -445,6 +445,12 @@ noble \
             f"-type f -perm /111 ! -perm -o+x -exec chmod o+x {{}} \\;",
             check=False
         )
+
+        # DDM builds only: classify installed packages as qcom (locally-built)
+        # vs OSS/archive and inject the list into the rootfs before it's
+        # packed into system.img.
+        self.generate_qcom_package_list(rootfs_extract_dir, fakeroot_db)
+
         logger.info(f"Creating ext4 image from rootfs directory: {rootfs_extract_dir}")
         run_command(f"fakeroot -i {fakeroot_db} mke2fs -t ext4 -F -U $(uuidgen) -d {rootfs_extract_dir} {self.OUT_SYSTEM_IMG} {img_blocks}")
         cleanup_file(fakeroot_db)
@@ -488,6 +494,77 @@ noble \
                 f"built image despite being excluded for DDM: {', '.join(violations)}"
             )
         logger.info(f"DDM blacklist check passed: none of {len(self.DDM_BLACKLIST)} excluded package(s) are installed.")
+
+    def generate_qcom_package_list(self, rootfs_extract_dir, fakeroot_db):
+        """
+        Writes /etc/qcom-packages.list into the rootfs for DDM builds: one
+        "name\\tversion" line per installed package that Qualcomm actually built
+        locally this run. A package only counts as qcom-local if BOTH a matching
+        .deb exists under DEB_OUT_DIR AND a "Package:" stanza for it exists
+        somewhere in the workspace tree, in either a source-package debian/control
+        or a binary-staging DEBIAN/control (e.g. kernel-dlkm, built via dpkg-deb
+        --build on a staged DEBIAN/ dir rather than a debian/ source tree) --
+        same two-pronged method used to classify locally-built packages during
+        manifest gap analysis. DEB_OUT_DIR alone is not sufficient, since its
+        temp/ subdir also holds downloaded build-dependency .debs (e.g. sbuild
+        fetching libgl1 to satisfy a Build-Depends), which are not
+        Qualcomm-authored. Packages not in the list are OSS/archive packages by
+        omission.
+        """
+        if not self.IS_DDM_ENABLED:
+            return
+
+        command = (
+            f"dpkg-query --admindir={self.MOUNT_DIR}/var/lib/dpkg "
+            f"-W -f='${{Package}}\\t${{Version}}\\n'"
+        )
+        result = run_command_for_result(command)
+        if result['returncode'] != 0:
+            raise Exception(f"Failed to query installed packages for qcom package list: {result['output']}")
+
+        local_debs = set()
+        if self.DEB_OUT_DIR:
+            for deb in Path(self.DEB_OUT_DIR).rglob("*.deb"):
+                name_result = run_command_for_result(f"dpkg-deb -f {deb} Package")
+                if name_result['returncode'] == 0 and name_result['output']:
+                    local_debs.add(name_result['output'])
+
+        local_src_pkgs = set()
+        if self.WORKSPACE_DIR:
+            exclude_dirs = {"out", "out-ddm", "debian_packages", ".repo", "poky", "prebuilt_HY11"}
+            control_globs = ("**/debian/control", "**/DEBIAN/control")
+            controls = set()
+            for pattern in control_globs:
+                controls.update(Path(self.WORKSPACE_DIR).glob(pattern))
+            for control in controls:
+                if exclude_dirs & set(control.relative_to(self.WORKSPACE_DIR).parts):
+                    continue
+                with open(control, errors="ignore") as f:
+                    local_src_pkgs.update(re.findall(r'^Package:\s*(\S+)', f.read(), re.MULTILINE))
+
+        local_pkgs = local_debs & local_src_pkgs
+
+        qcom_lines = [
+            line for line in result['output'].splitlines()
+            if line.partition('\t')[0] in local_pkgs
+        ]
+
+        tmp_path = os.path.join(self.TEMP_DIR, "qcom-packages.list")
+        with open(tmp_path, "w") as f:
+            f.write("\n".join(qcom_lines) + ("\n" if qcom_lines else ""))
+
+        run_command(
+            f"fakeroot -i {fakeroot_db} -s {fakeroot_db} bash -c "
+            f"'install -m 644 -o root -g root {tmp_path} {rootfs_extract_dir}/etc/qcom-packages.list'"
+        )
+
+        manifest_copy_path = os.path.join(self.OUT_DIR, "qcom-packages.manifest")
+        shutil.copy(tmp_path, manifest_copy_path)
+        cleanup_file(tmp_path)
+        logger.info(
+            f"Qcom package list ({len(qcom_lines)} package(s)) saved to "
+            f"{rootfs_extract_dir}/etc/qcom-packages.list and {manifest_copy_path}"
+        )
 
     def extract_manifest(self, flavor):
         """
