@@ -503,13 +503,17 @@ noble \
         .deb exists under DEB_OUT_DIR AND a "Package:" stanza for it exists
         somewhere in the workspace tree, in either a source-package debian/control
         or a binary-staging DEBIAN/control (e.g. kernel-dlkm, built via dpkg-deb
-        --build on a staged DEBIAN/ dir rather than a debian/ source tree) --
-        same two-pronged method used to classify locally-built packages during
-        manifest gap analysis. DEB_OUT_DIR alone is not sufficient, since its
-        temp/ subdir also holds downloaded build-dependency .debs (e.g. sbuild
-        fetching libgl1 to satisfy a Build-Depends), which are not
-        Qualcomm-authored. Packages not in the list are OSS/archive packages by
-        omission.
+        --build on a staged DEBIAN/ dir rather than a debian/ source tree), OR its
+        .deb's own Package field is found under prebuilt_HY11 (e.g. HY11 no-ship
+        packages whose source was deleted upstream and are supplied solely as
+        prebuilt .debs, copied into DEB_OUT_DIR by build.py's prop-sync -- these
+        have no debian/control anywhere to find, so the prebuilt .deb itself is
+        the authoritative record of local authorship) -- same method used to
+        classify locally-built packages during manifest gap analysis. DEB_OUT_DIR
+        alone is not sufficient, since its temp/ subdir also holds downloaded
+        build-dependency .debs (e.g. sbuild fetching libgl1 to satisfy a
+        Build-Depends), which are not Qualcomm-authored. Packages not in the list
+        are OSS/archive packages by omission.
         """
         if not self.IS_DDM_ENABLED:
             return
@@ -541,6 +545,13 @@ noble \
                     continue
                 with open(control, errors="ignore") as f:
                     local_src_pkgs.update(re.findall(r'^Package:\s*(\S+)', f.read(), re.MULTILINE))
+
+            prebuilt_dir = Path(self.WORKSPACE_DIR) / "prebuilt_HY11"
+            if prebuilt_dir.is_dir():
+                for deb in prebuilt_dir.rglob("*.deb"):
+                    name_result = run_command_for_result(f"dpkg-deb -f {deb} Package")
+                    if name_result['returncode'] == 0 and name_result['output']:
+                        local_src_pkgs.add(name_result['output'])
 
         local_pkgs = local_debs & local_src_pkgs
 
